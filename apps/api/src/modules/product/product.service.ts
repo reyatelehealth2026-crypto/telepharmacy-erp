@@ -278,6 +278,91 @@ export class ProductService {
     return { synced, errors, details };
   }
 
+
+  // ── Create product manually ────────────────────────────────────────────────
+
+  async create(dto: any, userId: string) {
+    const sku = dto.sku ?? 'MAN-' + Date.now();
+    const slug = this.toSlug(dto.nameTh, sku);
+
+    const [product] = await this.db
+      .insert(products)
+      .values({
+        sku,
+        slug,
+        nameTh: dto.nameTh,
+        nameEn: dto.nameEn ?? null,
+        genericName: dto.genericName ?? null,
+        brand: dto.brand ?? null,
+        categoryId: dto.categoryId ?? null,
+        drugClassification: dto.drugClassification ?? null,
+        dosageForm: dto.dosageForm ?? null,
+        strength: dto.strength ?? null,
+        unit: dto.unit ?? 'item',
+        sellPrice: dto.sellPrice != null ? String(dto.sellPrice) : null,
+        comparePrice: dto.comparePrice != null ? String(dto.comparePrice) : null,
+        stockQty: dto.stockQty != null ? String(dto.stockQty) : '0',
+        shortDescription: dto.shortDescription ?? null,
+        howToUse: dto.howToUse ?? null,
+        warnings: dto.warnings ?? null,
+        requiresPrescription: dto.requiresPrescription ?? false,
+        requiresPharmacist: dto.requiresPharmacist ?? false,
+        barcode: dto.barcode ?? null,
+        status: dto.status ?? 'draft',
+        createdBy: userId,
+        updatedBy: userId,
+      })
+      .returning();
+
+    return this.formatProduct(product);
+  }
+
+  // ── Update product ─────────────────────────────────────────────────────────
+
+  async update(id: string, dto: any, userId: string) {
+    const [existing] = await this.db
+      .select({ id: products.id })
+      .from(products)
+      .where(eq(products.id, id))
+      .limit(1);
+    if (!existing) throw new NotFoundException('ไม่พบสินค้า');
+
+    const updates = { updatedBy: userId, updatedAt: new Date() };
+    const stringFields = ['sellPrice', 'comparePrice', 'memberPrice', 'stockQty'];
+    for (const [key, val] of Object.entries(dto)) {
+      if (val === undefined) continue;
+      if (stringFields.includes(key) && val != null) {
+        updates[key] = String(val);
+      } else {
+        updates[key] = val;
+      }
+    }
+
+    const [updated] = await this.db
+      .update(products)
+      .set(updates)
+      .where(eq(products.id, id))
+      .returning();
+
+    return this.formatProduct(updated);
+  }
+
+  // ── Delete product (soft delete) ───────────────────────────────────────────
+
+  async remove(id: string) {
+    const [existing] = await this.db
+      .select({ id: products.id })
+      .from(products)
+      .where(eq(products.id, id))
+      .limit(1);
+    if (!existing) throw new NotFoundException('ไม่พบสินค้า');
+
+    await this.db
+      .update(products)
+      .set({ status: 'inactive', updatedAt: new Date() })
+      .where(eq(products.id, id));
+  }
+
   // ── Private helpers ────────────────────────────────────────────────────────
 
   private async upsertFromOdoo(op: OdooNormalisedProduct) {

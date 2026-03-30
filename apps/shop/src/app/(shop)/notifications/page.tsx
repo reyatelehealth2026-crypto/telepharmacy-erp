@@ -1,102 +1,156 @@
-import Link from 'next/link';
-import { ArrowLeft, Bell, Package, Pill, Megaphone } from 'lucide-react';
+'use client';
 
-const mockNotifications = [
-  {
-    id: '1',
-    type: 'order_shipped',
-    title: 'จัดส่งแล้ว!',
-    body: 'ออเดอร์ #REYA-20260330-001 จัดส่งแล้ว คาดถึง 1 เม.ย.',
-    isRead: false,
-    createdAt: '2026-03-30T14:00:00',
-    icon: Package,
-    color: 'text-purple-500 bg-purple-100',
-  },
-  {
-    id: '2',
-    type: 'prescription_status',
-    title: 'ใบสั่งยาอนุมัติแล้ว',
-    body: 'RX-20260330-001 ผ่านการตรวจสอบแล้ว กรุณาชำระเงิน',
-    isRead: false,
-    createdAt: '2026-03-30T10:00:00',
-    icon: Pill,
-    color: 'text-green-500 bg-green-100',
-  },
-  {
-    id: '3',
-    type: 'promotion',
-    title: 'Flash Sale วันนี้!',
-    body: 'วิตามินซี ลด 30% เฉพาะวันนี้เท่านั้น',
-    isRead: true,
-    createdAt: '2026-03-29T09:00:00',
-    icon: Megaphone,
-    color: 'text-amber-500 bg-amber-100',
-  },
-  {
-    id: '4',
-    type: 'refill_reminder',
-    title: 'ถึงเวลาเติมยา',
-    body: 'Metformin 500mg ของคุณกำลังจะหมด สั่งซื้อซ้ำได้เลย',
-    isRead: true,
-    createdAt: '2026-03-28T08:00:00',
-    icon: Pill,
-    color: 'text-blue-500 bg-blue-100',
-  },
-];
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { ArrowLeft, Bell, Package, Pill, Megaphone, MessageCircle, Loader2, CheckCheck } from 'lucide-react';
+import { useAuthStore } from '@/store/auth';
+import { Button } from '@/components/ui/button';
+import {
+  getMyNotifications,
+  markRead,
+  markAllRead,
+  type Notification,
+} from '@/lib/notifications';
+
+/** Map notification type → icon + color */
+function getNotifStyle(type: string) {
+  switch (type) {
+    case 'order_status':
+    case 'order_confirmation':
+      return { Icon: Package, color: 'text-purple-500 bg-purple-100' };
+    case 'prescription_status':
+    case 'refill_reminder':
+      return { Icon: Pill, color: 'text-blue-500 bg-blue-100' };
+    case 'promotion':
+      return { Icon: Megaphone, color: 'text-amber-500 bg-amber-100' };
+    case 'chat_message':
+      return { Icon: MessageCircle, color: 'text-green-500 bg-green-100' };
+    default:
+      return { Icon: Bell, color: 'text-slate-500 bg-slate-100' };
+  }
+}
 
 export default function NotificationsPage() {
+  const { accessToken } = useAuthStore();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!accessToken) { setLoading(false); return; }
+    getMyNotifications(accessToken)
+      .then((res) => {
+        setNotifications(res.data ?? []);
+        setUnreadCount(res.unreadCount ?? 0);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [accessToken]);
+
+  const handleTap = async (notif: Notification) => {
+    if (notif.readAt || !accessToken) return;
+    try {
+      await markRead(accessToken, notif.id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notif.id ? { ...n, readAt: new Date().toISOString() } : n)),
+      );
+      setUnreadCount((c) => Math.max(0, c - 1));
+    } catch {
+      // silent
+    }
+  };
+
+  const handleReadAll = async () => {
+    if (!accessToken) return;
+    try {
+      await markAllRead(accessToken);
+      setNotifications((prev) =>
+        prev.map((n) => ({ ...n, readAt: n.readAt ?? new Date().toISOString() })),
+      );
+      setUnreadCount(0);
+    } catch {
+      // silent
+    }
+  };
+
   return (
     <div>
-      <div className="flex items-center gap-3 px-4 py-3">
-        <Link href="/" className="rounded-full p-1 hover:bg-muted">
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <h1 className="text-lg font-bold">การแจ้งเตือน</h1>
-      </div>
-
-      <div className="space-y-1 px-4">
-        {mockNotifications.map((notif) => {
-          const Icon = notif.icon;
-          return (
-            <div
-              key={notif.id}
-              className={`flex gap-3 rounded-xl p-3 transition-colors hover:bg-muted/50 ${
-                !notif.isRead ? 'bg-primary/5' : ''
-              }`}
-            >
-              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${notif.color}`}>
-                <Icon className="h-5 w-5" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-start justify-between">
-                  <h3 className={`text-sm ${!notif.isRead ? 'font-bold' : 'font-medium'}`}>
-                    {notif.title}
-                  </h3>
-                  {!notif.isRead && (
-                    <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" />
-                  )}
-                </div>
-                <p className="mt-0.5 text-xs text-muted-foreground">{notif.body}</p>
-                <p className="mt-1 text-[10px] text-muted-foreground">
-                  {new Date(notif.createdAt).toLocaleDateString('th-TH', {
-                    day: 'numeric',
-                    month: 'short',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </p>
-              </div>
-            </div>
-          );
-        })}
-
-        {mockNotifications.length === 0 && (
-          <div className="py-12 text-center">
-            <Bell className="mx-auto h-12 w-12 text-muted-foreground/30" />
-            <p className="mt-2 text-sm text-muted-foreground">ยังไม่มีการแจ้งเตือน</p>
-          </div>
+      <div className="flex items-center justify-between px-4 py-3">
+        <div className="flex items-center gap-3">
+          <Link href="/" className="rounded-full p-1 hover:bg-muted">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <h1 className="text-lg font-bold">การแจ้งเตือน</h1>
+          {unreadCount > 0 && (
+            <span className="ml-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-white">
+              {unreadCount}
+            </span>
+          )}
+        </div>
+        {unreadCount > 0 && (
+          <Button variant="ghost" size="sm" onClick={handleReadAll}>
+            <CheckCheck className="h-4 w-4 mr-1" />
+            อ่านทั้งหมด
+          </Button>
         )}
       </div>
+
+      {loading ? (
+        <div className="flex justify-center py-10">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <div className="space-y-1 px-4">
+          {notifications.map((notif) => {
+            const { Icon, color } = getNotifStyle(notif.type);
+            const isRead = !!notif.readAt;
+            return (
+              <div
+                key={notif.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => handleTap(notif)}
+                onKeyDown={(e) => e.key === 'Enter' && handleTap(notif)}
+                className={`flex gap-3 rounded-xl p-3 transition-colors hover:bg-muted/50 cursor-pointer ${
+                  !isRead ? 'bg-primary/5' : ''
+                }`}
+              >
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${color}`}>
+                  <Icon className="h-5 w-5" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-start justify-between">
+                    <h3 className={`text-sm ${!isRead ? 'font-bold' : 'font-medium'}`}>
+                      {notif.title}
+                    </h3>
+                    {!isRead && (
+                      <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" />
+                    )}
+                  </div>
+                  {notif.body && (
+                    <p className="mt-0.5 text-xs text-muted-foreground">{notif.body}</p>
+                  )}
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    {new Date(notif.createdAt).toLocaleDateString('th-TH', {
+                      day: 'numeric',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+
+          {notifications.length === 0 && (
+            <div className="py-12 text-center">
+              <Bell className="mx-auto h-12 w-12 text-muted-foreground/30" />
+              <p className="mt-2 text-sm text-muted-foreground">ยังไม่มีการแจ้งเตือน</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

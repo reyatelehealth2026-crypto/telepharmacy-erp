@@ -10,6 +10,7 @@ import {
 import { DRIZZLE } from '../../database/database.constants';
 import { InventoryService } from '../inventory/inventory.service';
 import { PaymentService } from '../payment/payment.service';
+import { LoyaltyService } from '../loyalty/loyalty.service';
 import type { CreateOtcOrderDto } from './dto/create-otc-order.dto';
 import type { ShipOrderDto } from './dto/ship-order.dto';
 import type { ShippingWebhookDto } from './dto/shipping-webhook.dto';
@@ -22,6 +23,7 @@ export class OrdersService {
     @Inject(DRIZZLE) private readonly db: any,
     private readonly inventoryService: InventoryService,
     private readonly paymentService: PaymentService,
+    private readonly loyaltyService: LoyaltyService,
   ) {}
 
   /**
@@ -444,7 +446,7 @@ export class OrdersService {
   }
 
   /**
-   * Mark order as delivered.
+   * Mark order as delivered + auto-earn loyalty points.
    */
   async markDelivered(id: string) {
     const order = await this.getOrderEntity(id);
@@ -463,6 +465,31 @@ export class OrdersService {
         .update(deliveries)
         .set({ status: 'delivered', deliveredAt: new Date(), updatedAt: new Date() })
         .where(eq(deliveries.id, delivery.id));
+    }
+
+    // ── Loyalty: Auto-earn points on delivery ──
+    const totalAmount = parseFloat(order.totalAmount ?? '0');
+    if (totalAmount > 0 && order.patientId) {
+      try {
+        const earnResult = await this.loyaltyService.earnPoints(
+          order.patientId,
+          id,
+          totalAmount,
+        );
+
+        // Update pointsEarned on the order record
+        await this.db
+          .update(orders)
+          .set({ pointsEarned: earnResult.earnedPoints })
+          .where(eq(orders.id, id));
+
+        this.logger.log(
+          `Loyalty: ${earnResult.earnedPoints} points earned for order ${id} (${earnResult.multiplier}x)`,
+        );
+      } catch (err) {
+        this.logger.error(`Failed to earn loyalty points for order ${id}`, err);
+        // Non-fatal — order delivery still succeeds
+      }
     }
 
     this.logger.log(`Order ${id} marked as delivered`);

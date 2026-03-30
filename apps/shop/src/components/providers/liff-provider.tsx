@@ -58,7 +58,7 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
           setLiffProfile(profile);
 
           // Auto-login to backend if no existing token
-          if (!accessToken && profile) {
+          if (!useAuthStore.getState().accessToken && profile) {
             const lineToken = getLiffAccessToken();
             if (lineToken) {
               try {
@@ -68,8 +68,11 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
                   refreshToken: res.refreshToken,
                   patient: res.patient,
                 });
-              } catch {
-                // User may need to register
+              } catch (err) {
+                console.error("LINE auto-login failed:", err);
+                // Redirect to registration page
+                window.location.href = "/register";
+                return;
               }
             }
           }

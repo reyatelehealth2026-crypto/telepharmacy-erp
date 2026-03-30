@@ -1,4 +1,4 @@
-import { Injectable, Inject, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { eq, and, desc, sql } from 'drizzle-orm';
@@ -6,6 +6,7 @@ import { medicationReminders, patients, notifications } from '@telepharmacy/db';
 import { DRIZZLE } from '../../database/database.constants';
 import { LineClientService } from '../line/services/line-client.service';
 import type { CreateReminderDto } from './dto/create-reminder.dto';
+import type { CreatePatientReminderDto } from './dto/create-patient-reminder.dto';
 
 export const ADHERENCE_QUEUE = 'adherence-queue';
 export const SEND_REMINDER_JOB = 'send-reminder';
@@ -160,6 +161,60 @@ export class AdherenceService {
     );
 
     return { success: true, message: 'ส่งการแจ้งเตือนเรียบร้อยแล้ว' };
+  }
+
+  // ── Patient self-service methods ─────────────────────────────────────────
+
+  /** Patient creates their own reminder (no BullMQ scheduling — times are stored for cron) */
+  async createPatientReminder(dto: CreatePatientReminderDto, patientId: string) {
+    const [reminder] = await this.db
+      .insert(medicationReminders)
+      .values({
+        patientId,
+        drugName: dto.drugName,
+        sig: dto.sig ?? null,
+        reminderTimes: dto.reminderTimes,
+        reminderDays: dto.reminderDays,
+        isActive: true,
+      })
+      .returning();
+
+    this.logger.log(`Patient ${patientId} created self-service reminder ${reminder.id}`);
+    return reminder;
+  }
+
+  /** Toggle a reminder on/off (patient owns it) */
+  async toggleReminder(id: string, patientId: string) {
+    const [existing] = await this.db
+      .select()
+      .from(medicationReminders)
+      .where(and(eq(medicationReminders.id, id), eq(medicationReminders.patientId, patientId)))
+      .limit(1);
+
+    if (!existing) throw new NotFoundException(`ไม่พบการแจ้งเตือนรหัส ${id}`);
+
+    const [updated] = await this.db
+      .update(medicationReminders)
+      .set({ isActive: !existing.isActive, updatedAt: new Date() })
+      .where(eq(medicationReminders.id, id))
+      .returning();
+
+    return updated;
+  }
+
+  /** Delete a reminder (patient owns it) */
+  async deleteReminder(id: string, patientId: string) {
+    const [existing] = await this.db
+      .select()
+      .from(medicationReminders)
+      .where(and(eq(medicationReminders.id, id), eq(medicationReminders.patientId, patientId)))
+      .limit(1);
+
+    if (!existing) throw new NotFoundException(`ไม่พบการแจ้งเตือนรหัส ${id}`);
+
+    await this.db
+      .delete(medicationReminders)
+      .where(eq(medicationReminders.id, id));
   }
 
   async dispatchLineReminder(

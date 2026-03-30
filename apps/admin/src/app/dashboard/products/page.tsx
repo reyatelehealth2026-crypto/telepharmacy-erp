@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Pill, PackagePlus, Tag, TrendingUp, RefreshCw } from 'lucide-react';
 import { StatCard } from '@/components/stat-card';
 import { PageHeader } from '@/components/page-header';
@@ -39,10 +40,10 @@ export default async function ProductsPage({
       <PageHeader title="จัดการสินค้า" description="สินค้าและยาในระบบ">
         <div className="flex gap-2">
           <OdooSyncButton />
-          <button className="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
+          <Link href="/dashboard/products/new" className="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
             <PackagePlus className="mr-2 h-4 w-4" />
             เพิ่มสินค้า
-          </button>
+          </Link>
         </div>
       </PageHeader>
 

@@ -101,7 +101,7 @@ export async function uploadPaymentSlip(token: string, orderId: string, file: Fi
   formData.append('slip', file);
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-  const res = await fetch(`${API_BASE}/v1/orders/${orderId}/payment-slip`, {
+  const res = await fetch(`${API_BASE}/v1/orders/${orderId}/slip`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: formData,

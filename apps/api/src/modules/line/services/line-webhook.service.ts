@@ -5,6 +5,8 @@ import { patients, chatSessions, chatMessages } from '@telepharmacy/db';
 import { DRIZZLE } from '../../../database/database.constants';
 import { LineClientService } from './line-client.service';
 import { FlexMessageService } from './flex-message.service';
+import { SmartOrderParserService } from './smart-order-parser.service';
+import { SentimentService } from './sentiment.service';
 import type {
   LineWebhookEvent,
   LineMessageEvent,
@@ -24,6 +26,8 @@ export class LineWebhookService {
     @Inject(DRIZZLE) private readonly db: any,
     private readonly lineClient: LineClientService,
     private readonly flexMessage: FlexMessageService,
+    private readonly smartOrderParser: SmartOrderParserService,
+    private readonly sentimentService: SentimentService,
     private readonly config: ConfigService,
   ) {
     this.shopUrl =
@@ -99,13 +103,13 @@ export class LineWebhookService {
 
     const session = await this.getOrCreateChatSession(patient.id, userId);
 
-    await this.db.insert(chatMessages).values({
+    const [savedMsg] = await this.db.insert(chatMessages).values({
       sessionId: session.id,
       role: 'user',
       content: msg.text,
       lineMessageId: msg.id,
       messageType: 'text',
-    });
+    }).returning();
 
     await this.db
       .update(chatSessions)
@@ -114,6 +118,29 @@ export class LineWebhookService {
         updatedAt: new Date(),
       })
       .where(eq(chatSessions.id, session.id));
+
+    // ── Sentiment Analysis (async, non-blocking reply) ──
+    this.sentimentService.analyze(msg.text).then(async (sentiment) => {
+      try {
+        await this.sentimentService.storeSentiment(savedMsg.id, sentiment);
+
+        if (await this.sentimentService.shouldEscalate(session.id)) {
+          await this.sentimentService.escalateSession(
+            session.id,
+            `Auto-escalated: consecutive negative sentiment (${sentiment.label}/${sentiment.score})`,
+          );
+          // Notify patient
+          await this.lineClient.pushMessage(userId, [
+            {
+              type: 'text',
+              text: '🙏 ขออภัยในความไม่สะดวกค่ะ กำลังเชื่อมต่อเภสัชกรให้ดูแลเป็นพิเศษค่ะ',
+            },
+          ]);
+        }
+      } catch (err) {
+        this.logger.error('Sentiment analysis error', err);
+      }
+    });
 
     const text = msg.text.trim().toLowerCase();
 
@@ -157,6 +184,32 @@ export class LineWebhookService {
         {
           type: 'text',
           text: '💬 กรุณารอสักครู่ค่ะ กำลังเชื่อมต่อเภสัชกรให้...\nหากต้องการปรึกษาทันที กดลิงก์ด้านล่างค่ะ',
+        },
+      ]);
+      return;
+    }
+
+    // ── Smart Order Recognition (feature-flagged) ──
+    const parsed = await this.smartOrderParser.parseMessage(msg.text);
+    if (parsed && parsed.intent === 'buy_otc' && parsed.confidence >= 0.7 && parsed.entities.length > 0) {
+      const entityList = parsed.entities
+        .map((e) => `• ${e.productName}${e.quantity ? ` x${e.quantity}` : ''}${e.unit ? ` ${e.unit}` : ''}`)
+        .join('\n');
+
+      await this.lineClient.replyMessage(event.replyToken, [
+        {
+          type: 'text',
+          text: `🛒 เข้าใจค่ะ คุณต้องการสั่ง:\n${entityList}\n\nเปิดร้านค้าเพื่อเพิ่มลงตะกร้าได้เลยค่ะ:\n${this.shopUrl}`,
+        },
+      ]);
+      return;
+    }
+
+    if (parsed && parsed.intent === 'order_tracking') {
+      await this.lineClient.replyMessage(event.replyToken, [
+        {
+          type: 'text',
+          text: `📦 ติดตามออเดอร์ได้ที่:\n${this.shopUrl}/orders`,
         },
       ]);
       return;

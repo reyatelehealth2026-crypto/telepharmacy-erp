@@ -21,6 +21,7 @@ import { AdrModule } from './modules/adr/adr.module';
 import { AdherenceModule } from './modules/adherence/adherence.module';
 import { DrugInfoModule } from './modules/drug-info/drug-info.module';
 import { ComplianceModule } from './modules/compliance/compliance.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { ComplianceModule } from './modules/compliance/compliance.module';
     AdherenceModule,
     DrugInfoModule,
     ComplianceModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}

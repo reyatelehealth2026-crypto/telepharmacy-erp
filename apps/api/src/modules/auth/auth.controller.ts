@@ -12,11 +12,13 @@ import { LineLoginDto } from './dto/line-login.dto';
 import { StaffLoginDto } from './dto/staff-login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { PdpaConsentDto } from './dto/pdpa-consent.dto';
+import { RegisterPatientSchema, type RegisterPatientDto } from './dto/register-patient.dto';
 import { Public } from './decorators/public.decorator';
 import { PatientOnly } from './decorators/patient-only.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PatientOnlyGuard } from './guards/patient-only.guard';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import type { RequestUser } from './interfaces';
 
 @Controller('auth')
@@ -24,10 +26,17 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
-  @Post('line-login')
+  @Post('line')
   @HttpCode(HttpStatus.CREATED)
   lineLogin(@Body() dto: LineLoginDto) {
     return this.authService.lineLogin(dto);
+  }
+
+  @Public()
+  @Post('register')
+  @HttpCode(HttpStatus.CREATED)
+  register(@Body(new ZodValidationPipe(RegisterPatientSchema)) dto: RegisterPatientDto) {
+    return this.authService.register(dto);
   }
 
   @Public()
@@ -67,5 +76,22 @@ export class AuthController {
   @Get('me')
   getProfile(@CurrentUser() user: RequestUser) {
     return this.authService.getProfile(user);
+  }
+
+  // ─── Account Linking ──────────────────────────────────────────
+
+  @UseGuards(JwtAuthGuard, PatientOnlyGuard)
+  @PatientOnly()
+  @Post('line/link/request')
+  @HttpCode(HttpStatus.CREATED)
+  requestAccountLink(@CurrentUser() user: RequestUser) {
+    return this.authService.requestAccountLink(user.id);
+  }
+
+  @Public()
+  @Post('line/link/confirm')
+  @HttpCode(HttpStatus.OK)
+  confirmAccountLink(@Body() body: { token: string; lineUserId: string }) {
+    return this.authService.confirmAccountLink(body.token, body.lineUserId);
   }
 }

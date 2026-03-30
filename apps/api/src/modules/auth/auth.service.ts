@@ -3,19 +3,23 @@ import {
   Inject,
   UnauthorizedException,
   ConflictException,
+  NotFoundException,
+  BadRequestException,
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
-import { eq } from 'drizzle-orm';
-import { staff, patients } from '@telepharmacy/db';
+import * as crypto from 'crypto';
+import { eq, desc, and, isNull } from 'drizzle-orm';
+import { staff, patients, accountLinkTokens } from '@telepharmacy/db';
 import { DRIZZLE } from '../../database/database.constants';
 import { TokenType } from './auth.constants';
 import type { JwtPayload, RequestUser } from './interfaces';
 import type { LineLoginDto } from './dto/line-login.dto';
 import type { StaffLoginDto } from './dto/staff-login.dto';
 import type { PdpaConsentDto } from './dto/pdpa-consent.dto';
+import type { RegisterPatientDto } from './dto/register-patient.dto';
 
 @Injectable()
 export class AuthService {
@@ -28,7 +32,7 @@ export class AuthService {
   ) {}
 
   async lineLogin(dto: LineLoginDto) {
-    const lineProfile = await this.exchangeLineCode(dto.code, dto.redirectUri);
+    const lineProfile = await this.verifyLineToken(dto.lineAccessToken);
 
     let [patient] = await this.db
       .select()
@@ -143,6 +147,184 @@ export class AuthService {
     }
   }
 
+  /**
+   * Register a new patient with full profile + LINE binding.
+   */
+  async register(dto: RegisterPatientDto) {
+    const lineProfile = await this.verifyLineToken(dto.lineAccessToken);
+
+    // Check if LINE user already has an account
+    const [existing] = await this.db
+      .select()
+      .from(patients)
+      .where(eq(patients.lineUserId, lineProfile.userId))
+      .limit(1);
+
+    if (existing && existing.phone) {
+      // Already fully registered — just return tokens
+      const tokens = await this.generatePatientTokens(existing);
+      return {
+        ...tokens,
+        tokenType: 'Bearer',
+        patient: {
+          id: existing.id,
+          patientNo: existing.patientNo,
+          firstName: existing.firstName,
+          lastName: existing.lastName,
+          isRegistered: true,
+        },
+        isNewPatient: false,
+      };
+    }
+
+    const now = new Date();
+    const patientNo = existing?.patientNo ?? (await this.generatePatientNo());
+
+    const values: any = {
+      lineUserId: lineProfile.userId,
+      patientNo,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      phone: dto.phone ?? null,
+      birthDate: dto.dateOfBirth ?? null,
+      gender: dto.gender ?? null,
+      weight: dto.weight ? String(dto.weight) : null,
+      height: dto.height ? String(dto.height) : null,
+      pdpaConsentAt: now,
+      pdpaVersion: dto.pdpaConsentVersion,
+      lineLinkedAt: now,
+      updatedAt: now,
+    };
+
+    let patient: any;
+    if (existing) {
+      // Update the skeleton record created by lineLogin/webhook
+      [patient] = await this.db
+        .update(patients)
+        .set(values)
+        .where(eq(patients.id, existing.id))
+        .returning();
+    } else {
+      [patient] = await this.db
+        .insert(patients)
+        .values({ ...values, province: '' })
+        .returning();
+    }
+
+    const tokens = await this.generatePatientTokens(patient);
+
+    return {
+      ...tokens,
+      tokenType: 'Bearer',
+      patient: {
+        id: patient.id,
+        patientNo: patient.patientNo,
+        firstName: patient.firstName,
+        lastName: patient.lastName,
+        isRegistered: true,
+      },
+      isNewPatient: !existing,
+    };
+  }
+
+  /**
+   * Generate a short-lived account link token for binding an existing patient to LINE.
+   */
+  async requestAccountLink(patientId: string) {
+    const [patient] = await this.db
+      .select()
+      .from(patients)
+      .where(eq(patients.id, patientId))
+      .limit(1);
+
+    if (!patient) throw new NotFoundException('ไม่พบข้อมูลผู้ป่วย');
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min expiry
+
+    await this.db.insert(accountLinkTokens).values({
+      token,
+      patientId,
+      expiresAt,
+    });
+
+    this.logger.log(`Account link token created for patient ${patientId}`);
+    return { token, expiresAt: expiresAt.toISOString() };
+  }
+
+  /**
+   * Confirm account link — bind patientId to LINE userId using the token.
+   */
+  async confirmAccountLink(token: string, lineUserId: string) {
+    const [linkToken] = await this.db
+      .select()
+      .from(accountLinkTokens)
+      .where(
+        and(
+          eq(accountLinkTokens.token, token),
+          isNull(accountLinkTokens.usedAt),
+        ),
+      )
+      .limit(1);
+
+    if (!linkToken) {
+      throw new BadRequestException('โทเค็นไม่ถูกต้องหรือถูกใช้แล้ว');
+    }
+
+    if (new Date() > linkToken.expiresAt) {
+      throw new BadRequestException('โทเค็นหมดอายุแล้ว');
+    }
+
+    // Check if LINE user is already linked to another patient
+    const [existingLink] = await this.db
+      .select()
+      .from(patients)
+      .where(eq(patients.lineUserId, lineUserId))
+      .limit(1);
+
+    if (existingLink && existingLink.id !== linkToken.patientId) {
+      throw new ConflictException('บัญชี LINE นี้เชื่อมต่อกับผู้ป่วยรายอื่นแล้ว');
+    }
+
+    // Bind LINE user to patient
+    await this.db
+      .update(patients)
+      .set({
+        lineUserId,
+        lineLinkedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(patients.id, linkToken.patientId));
+
+    // Mark token as used
+    await this.db
+      .update(accountLinkTokens)
+      .set({ usedAt: new Date(), lineUserId })
+      .where(eq(accountLinkTokens.id, linkToken.id));
+
+    const [patient] = await this.db
+      .select()
+      .from(patients)
+      .where(eq(patients.id, linkToken.patientId))
+      .limit(1);
+
+    const tokens = await this.generatePatientTokens(patient);
+
+    this.logger.log(`Account linked: patient ${linkToken.patientId} → LINE ${lineUserId}`);
+
+    return {
+      ...tokens,
+      tokenType: 'Bearer',
+      patient: {
+        id: patient.id,
+        patientNo: patient.patientNo,
+        firstName: patient.firstName,
+        lastName: patient.lastName,
+      },
+      message: 'เชื่อมต่อบัญชี LINE สำเร็จ',
+    };
+  }
+
   async pdpaConsent(userId: string, dto: PdpaConsentDto) {
     const now = new Date();
 
@@ -254,55 +436,30 @@ export class AuthService {
     return { accessToken, refreshToken, expiresIn: expiresInSec };
   }
 
-  private async exchangeLineCode(
-    code: string,
-    redirectUri: string,
+  private async verifyLineToken(
+    accessToken: string,
   ): Promise<{ userId: string; displayName?: string; pictureUrl?: string }> {
-    const channelId = this.config.get<string>('line.channelSecret') ?? '';
-    const channelSecret =
-      this.config.get<string>('line.channelAccessToken') ?? '';
-
     try {
-      const tokenResponse = await fetch(
-        'https://api.line.me/oauth2/v2.1/token',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
-            grant_type: 'authorization_code',
-            code,
-            redirect_uri: redirectUri,
-            client_id: channelId,
-            client_secret: channelSecret,
-          }),
-        },
+      const verifyRes = await fetch(
+        ,
       );
-
-      if (!tokenResponse.ok) {
-        this.logger.warn(`LINE token exchange failed: ${tokenResponse.status}`);
-        throw new UnauthorizedException('LINE authorization code ไม่ถูกต้อง');
+      if (!verifyRes.ok) {
+        this.logger.warn();
+        throw new UnauthorizedException('LINE access token ไม่ถูกต้อง');
+      }
+      const verifyData = (await verifyRes.json()) as { client_id: string; expires_in: number };
+      const channelId = this.config.get<string>('line.channelId') ?? '';
+      if (verifyData.client_id !== channelId) {
+        throw new UnauthorizedException('LINE channel ไม่ตรงกัน');
       }
 
-      const tokenData = (await tokenResponse.json()) as {
-        access_token: string;
-        id_token?: string;
-      };
-
-      const profileResponse = await fetch('https://api.line.me/v2/profile', {
-        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      const profileRes = await fetch('https://api.line.me/v2/profile', {
+        headers: { Authorization:  },
       });
-
-      if (!profileResponse.ok) {
+      if (!profileRes.ok) {
         throw new UnauthorizedException('ไม่สามารถดึงข้อมูลโปรไฟล์ LINE ได้');
       }
-
-      const profile = (await profileResponse.json()) as {
-        userId: string;
-        displayName?: string;
-        pictureUrl?: string;
-      };
-
-      return profile;
+      return (await profileRes.json()) as { userId: string; displayName?: string; pictureUrl?: string };
     } catch (error) {
       if (error instanceof UnauthorizedException) throw error;
       this.logger.error('LINE login error', error);
@@ -314,7 +471,7 @@ export class AuthService {
     const result = await this.db
       .select({ patientNo: patients.patientNo })
       .from(patients)
-      .orderBy(patients.createdAt)
+      .orderBy(desc(patients.createdAt))
       .limit(1);
 
     if (result.length === 0) {

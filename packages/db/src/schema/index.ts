@@ -13,4 +13,6 @@ export * from "./content";
 export * from "./complaints";
 export * from "./system";
 export * from "./clinical";
+export * from "./campaigns";
+export * from "./telemedicine";
 export * from "./relations";

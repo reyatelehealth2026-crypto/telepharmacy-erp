@@ -341,3 +341,24 @@ export const productStatusEnum = pgEnum("product_status", [
   "discontinued",
   "draft",
 ]);
+
+export const broadcastStatusEnum = pgEnum("broadcast_status", [
+  "draft",
+  "scheduled",
+  "sending",
+  "completed",
+  "failed",
+  "cancelled",
+]);
+
+export const broadcastRecipientStatusEnum = pgEnum(
+  "broadcast_recipient_status",
+  ["pending", "sent", "delivered", "failed"],
+);
+
+export const sentimentLabelEnum = pgEnum("sentiment_label", [
+  "positive",
+  "neutral",
+  "negative",
+  "angry",
+]);

@@ -1,14 +1,22 @@
 import { Injectable, Inject, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { payments, orders } from '@telepharmacy/db';
 import { DRIZZLE } from '../../database/database.constants';
 import type { VerifySlipDto } from './dto/verify-slip.dto';
 
+export const SLIP_OCR_QUEUE = 'slip-ocr-queue';
+export const PROCESS_SLIP_OCR_JOB = 'process-slip-ocr';
+
 @Injectable()
 export class PaymentService {
   private readonly logger = new Logger(PaymentService.name);
 
-  constructor(@Inject(DRIZZLE) private readonly db: any) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: any,
+    @InjectQueue(SLIP_OCR_QUEUE) private readonly slipOcrQueue: Queue,
+  ) {}
 
   /**
    * Generate PromptPay QR payload using EMVCo standard.
@@ -108,7 +116,23 @@ export class PaymentService {
       })
       .where(eq(payments.id, payment.id));
 
-    this.logger.log(`Slip uploaded for order ${orderId}`);
+    // Enqueue slip OCR job for automatic verification
+    await this.slipOcrQueue.add(
+      PROCESS_SLIP_OCR_JOB,
+      {
+        paymentId: payment.id,
+        orderId,
+        slipImageUrl,
+      },
+      {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+        removeOnComplete: 100,
+        removeOnFail: 50,
+      },
+    );
+
+    this.logger.log(`Slip uploaded for order ${orderId}, OCR job enqueued`);
 
     return {
       success: true,
@@ -308,6 +332,28 @@ export class PaymentService {
     return this.db.query.payments.findFirst({
       where: eq(payments.orderId, orderId),
     });
+  }
+
+  /**
+   * Store OCR result without auto-matching (for low/medium confidence).
+   */
+  async storeSlipOcrResult(paymentId: string, ocrResult: any, matchStatus: string) {
+    const payment = await this.db.query.payments.findFirst({
+      where: eq(payments.id, paymentId),
+    });
+    if (!payment) throw new NotFoundException(`Payment ${paymentId} not found`);
+
+    await this.db
+      .update(payments)
+      .set({
+        slipOcrResult: ocrResult,
+        slipMatchStatus: matchStatus,
+        updatedAt: new Date(),
+      })
+      .where(eq(payments.id, paymentId));
+
+    this.logger.log(`Slip OCR result stored for payment ${paymentId}: status=${matchStatus}`);
+    return { success: true, matchStatus };
   }
 
   /**

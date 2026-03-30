@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/auth';
 import { getMyProfile } from '@/lib/patient';
 import type { PatientProfile } from '@/lib/patient';
+import { getTransactions, type LoyaltyTransaction } from '@/lib/loyalty';
 
 const TIER_CONFIG: Record<string, { label: string; color: string; bg: string; next: string; nextAt: number }> = {
   bronze: { label: 'Bronze', color: 'text-amber-700', bg: 'bg-amber-100', next: 'Silver', nextAt: 1000 },
@@ -14,23 +15,22 @@ const TIER_CONFIG: Record<string, { label: string; color: string; bg: string; ne
   platinum: { label: 'Platinum', color: 'text-purple-600', bg: 'bg-purple-100', next: '', nextAt: 0 },
 };
 
-const mockHistory = [
-  { id: '1', type: 'earn' as const, points: 120, description: 'สั่งซื้อ #ORD-0042', createdAt: '2026-03-28T10:00:00Z' },
-  { id: '2', type: 'earn' as const, points: 85, description: 'สั่งซื้อ #ORD-0039', createdAt: '2026-03-20T14:30:00Z' },
-  { id: '3', type: 'redeem' as const, points: -200, description: 'แลกส่วนลด ฿20', createdAt: '2026-03-15T09:15:00Z' },
-  { id: '4', type: 'earn' as const, points: 50, description: 'โบนัสสมัครสมาชิก', createdAt: '2026-03-01T00:00:00Z' },
-];
-
 export default function LoyaltyPage() {
   const { accessToken } = useAuthStore();
   const [profile, setProfile] = useState<PatientProfile | null>(null);
+  const [transactions, setTransactions] = useState<LoyaltyTransaction[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!accessToken) { setLoading(false); return; }
-    getMyProfile(accessToken)
-      .then(setProfile)
-      .catch(() => {})
+    Promise.all([
+      getMyProfile(accessToken).catch(() => null),
+      getTransactions(accessToken, 1, 10).catch(() => ({ data: [] })),
+    ])
+      .then(([p, txRes]) => {
+        if (p) setProfile(p);
+        setTransactions(txRes.data ?? []);
+      })
       .finally(() => setLoading(false));
   }, [accessToken]);
 
@@ -148,19 +148,23 @@ export default function LoyaltyPage() {
               ประวัติแต้ม
             </h2>
             <div className="space-y-2">
-              {mockHistory.map((tx) => (
-                <div key={tx.id} className="flex items-center justify-between rounded-xl border p-3">
-                  <div>
-                    <p className="text-sm font-medium">{tx.description}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(tx.createdAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </p>
+              {transactions.length === 0 ? (
+                <p className="text-center text-sm text-muted-foreground py-4">ยังไม่มีประวัติแต้ม</p>
+              ) : (
+                transactions.map((tx) => (
+                  <div key={tx.id} className="flex items-center justify-between rounded-xl border p-3">
+                    <div>
+                      <p className="text-sm font-medium">{tx.description}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(tx.createdAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </p>
+                    </div>
+                    <span className={`text-sm font-bold ${tx.points > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                      {tx.points > 0 ? '+' : ''}{tx.points.toLocaleString()}
+                    </span>
                   </div>
-                  <span className={`text-sm font-bold ${tx.points > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                    {tx.points > 0 ? '+' : ''}{tx.points.toLocaleString()}
-                  </span>
-                </div>
-              ))}
+                ))
+              )}
             </div>
             <Link
               href="/profile/loyalty/history"
