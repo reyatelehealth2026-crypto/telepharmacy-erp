@@ -31,11 +31,8 @@ import { ComplianceModule } from './modules/compliance/compliance.module';
     ThrottlerModule.forRoot({
       throttlers: [{ ttl: 60_000, limit: 60 }],
     }),
-    BullModule.forRootAsync({
-      inject: [ConfigModule],
-      useFactory: () => ({
-        redis: { host: process.env.REDIS_HOST ?? 'localhost', port: parseInt(process.env.REDIS_PORT ?? '6379') },
-      }),
+    BullModule.forRoot({
+      redis: { host: process.env.REDIS_HOST ?? 'localhost', port: parseInt(process.env.REDIS_PORT ?? '6379') },
     }),
     DatabaseModule,
     HealthModule,

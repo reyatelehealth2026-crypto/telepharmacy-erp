@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -57,7 +57,7 @@ const MOCK_DRUGS: DrugInfo[] = [
   },
 ];
 
-export default function DIDatabasePage() {
+function DIDatabasePageInner() {
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get('q') || '';
   const [query, setQuery] = useState(initialQuery);
@@ -231,5 +231,13 @@ export default function DIDatabasePage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function DIDatabasePage() {
+  return (
+    <Suspense>
+      <DIDatabasePageInner />
+    </Suspense>
   );
 }

@@ -10,7 +10,7 @@ import {
   Req,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
-import { Request } from 'express';
+import type { Request } from 'express';
 import { ComplianceService } from './compliance.service';
 import { AuditService } from './audit.service';
 import { LogAuditEventSchema, type LogAuditEventDto, ConsentRecordSchema, type ConsentRecordDto } from './dto/data-request.dto';

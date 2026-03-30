@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { Search, SlidersHorizontal, Loader2, PackageX } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -27,7 +27,7 @@ const sortOptions = [
   { label: 'ใหม่ล่าสุด', sortBy: 'createdAt', sortOrder: 'desc' as const },
 ];
 
-export default function SearchPage() {
+function SearchPageInner() {
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(searchParams.get('q') ?? '');
   const [activeFilter, setActiveFilter] = useState<string | null>(
@@ -211,5 +211,13 @@ export default function SearchPage() {
         ) : null}
       </div>
     </div>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense>
+      <SearchPageInner />
+    </Suspense>
   );
 }

@@ -3,22 +3,20 @@ RUN corepack enable && corepack prepare pnpm@10.28.2 --activate
 WORKDIR /app
 
 FROM base AS deps
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY .npmrc pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/admin/package.json apps/admin/package.json
 COPY packages/shared/package.json packages/shared/package.json
 RUN pnpm install --frozen-lockfile --filter @telepharmacy/admin...
 
 FROM base AS builder
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/admin/node_modules ./apps/admin/node_modules
-COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
+COPY --from=deps /app ./
 COPY packages/shared packages/shared
 COPY apps/admin apps/admin
 COPY turbo.json tsconfig.base.json ./
 COPY package.json pnpm-workspace.yaml ./
 
 ARG NEXT_PUBLIC_ADMIN_API_URL
-ENV NEXT_PUBLIC_ADMIN_API_URL=$NEXT_PUBLIC_ADMIN_API_URL
+ENV NEXT_PUBLIC_ADMIN_API_URL=
 
 RUN pnpm run build --filter=@telepharmacy/admin...
 
@@ -36,7 +34,6 @@ ENV NODE_ENV=production
 ENV PORT=3001
 ENV HOSTNAME=0.0.0.0
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD wget --no-verbose --spider http://localhost:3001/ || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3   CMD wget --no-verbose --spider http://localhost:3001/ || exit 1
 
 CMD ["node", "apps/admin/server.js"]
