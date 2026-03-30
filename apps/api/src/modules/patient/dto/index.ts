@@ -1,0 +1,7 @@
+export { UpdatePatientDto } from './update-patient.dto';
+export { CreateAllergyDto } from './create-allergy.dto';
+export { UpdateAllergyDto } from './update-allergy.dto';
+export { CreateChronicDiseaseDto } from './create-chronic-disease.dto';
+export { UpdateChronicDiseaseDto } from './update-chronic-disease.dto';
+export { CreateMedicationDto } from './create-medication.dto';
+export { UpdateMedicationDto } from './update-medication.dto';

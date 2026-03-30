@@ -1,0 +1,27 @@
+{
+  "name": "@telepharmacy/ai",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./chatbot": "./src/chatbot.ts",
+    "./ocr": "./src/ocr.ts",
+    "./drug-checker": "./src/drug-checker.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint \"src/**/*.ts\"",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@ai-sdk/google": "^1",
+    "ai": "^4",
+    "zod": "^3"
+  },
+  "devDependencies": {
+    "typescript": "^5"
+  }
+}
