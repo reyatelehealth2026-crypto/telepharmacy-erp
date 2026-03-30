@@ -90,6 +90,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@ai-sdk/google':
+        specifier: ^1
+        version: 1.2.22(zod@3.25.76)
       '@anatine/zod-nestjs':
         specifier: ^2
         version: 2.0.12(@anatine/zod-openapi@2.2.8(openapi3-ts@4.5.0)(zod@3.25.76))(@nestjs/common@11.1.17(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/swagger@11.2.6(@nestjs/common@11.1.17(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.17)(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2))(openapi3-ts@4.5.0)(zod@3.25.76)
@@ -126,12 +129,18 @@ importers:
       '@nestjs/throttler':
         specifier: ^6
         version: 6.5.0(@nestjs/common@11.1.17(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.17)(reflect-metadata@0.2.2)
+      '@telepharmacy/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@telepharmacy/db':
         specifier: workspace:*
         version: link:../../packages/db
       '@telepharmacy/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      ai:
+        specifier: ^4
+        version: 4.3.19(react@19.2.4)(zod@3.25.76)
       bcryptjs:
         specifier: ^2
         version: 2.4.3
