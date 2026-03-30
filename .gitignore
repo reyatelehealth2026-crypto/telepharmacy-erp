@@ -42,6 +42,13 @@ meili_data/
 minio_data/
 grafana_data/
 
+# Secrets / credentials (never commit real values)
+odoo-cookies.txt
+odoo-curl.cfg
+test-odoo-login.json
+test-odoo-login2.json
+test-staff-login.json
+
 # Misc
 *.tsbuildinfo
 .eslintcache
