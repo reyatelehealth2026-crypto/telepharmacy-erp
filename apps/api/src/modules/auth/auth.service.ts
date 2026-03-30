@@ -441,10 +441,10 @@ export class AuthService {
   ): Promise<{ userId: string; displayName?: string; pictureUrl?: string }> {
     try {
       const verifyRes = await fetch(
-        ,
+        `https://api.line.me/oauth2/v2.1/verify?access_token=${accessToken}`,
       );
       if (!verifyRes.ok) {
-        this.logger.warn();
+        this.logger.warn('LINE token verification failed');
         throw new UnauthorizedException('LINE access token ไม่ถูกต้อง');
       }
       const verifyData = (await verifyRes.json()) as { client_id: string; expires_in: number };
@@ -454,7 +454,7 @@ export class AuthService {
       }
 
       const profileRes = await fetch('https://api.line.me/v2/profile', {
-        headers: { Authorization:  },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (!profileRes.ok) {
         throw new UnauthorizedException('ไม่สามารถดึงข้อมูลโปรไฟล์ LINE ได้');
