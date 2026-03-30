@@ -9,10 +9,12 @@ import {
   patientChronicDiseases,
   patientMedications,
   patients,
+  staff,
 } from '@telepharmacy/db';
 import { DRIZZLE } from '../../database/database.constants';
 import { PrescriptionOcrService } from './prescription-ocr.service';
 import { SafetyCheckEngineService } from '../drug-safety/safety-check-engine.service';
+import { PrescriptionSignatureService } from './prescription-signature.service';
 import type { CreatePrescriptionDto } from './dto/create-prescription.dto';
 import type { VerifyPrescriptionDto } from './dto/verify-prescription.dto';
 import type { PatientSafetyContext } from '../drug-safety/drug-safety.types';
@@ -25,6 +27,7 @@ export class PrescriptionService {
     @Inject(DRIZZLE) private readonly db: any,
     private readonly ocrService: PrescriptionOcrService,
     private readonly safetyEngine: SafetyCheckEngineService,
+    private readonly signatureService: PrescriptionSignatureService,
   ) {}
 
   async create(patientId: string, dto: CreatePrescriptionDto) {
@@ -141,13 +144,46 @@ export class PrescriptionService {
 
     const newStatus = this.mapDecisionToStatus(dto.decision);
 
+    // Fetch pharmacist record for digital signature (requires license number).
+    const [pharmacist] = await this.db
+      .select({
+        id: staff.id,
+        firstName: staff.firstName,
+        lastName: staff.lastName,
+        licenseNo: staff.licenseNo,
+      })
+      .from(staff)
+      .where(eq(staff.id, pharmacistId))
+      .limit(1);
+
+    if (!pharmacist) {
+      throw new NotFoundException(`Pharmacist ${pharmacistId} not found`);
+    }
+
+    // Generate a tamper-proof digital signature for the approval decision.
+    const interventionNotes = [
+      dto.interventionNote,
+      dto.rejectionReason,
+    ].filter(Boolean).join('; ');
+
+    const signatureToken = this.signatureService.signPrescription(
+      id,
+      pharmacist,
+      dto.decision,
+      interventionNotes,
+    );
+
+    const signedAt = new Date();
+
     await this.db
       .update(prescriptions)
       .set({
         status: newStatus,
         verifiedBy: pharmacistId,
-        verifiedAt: new Date(),
+        verifiedAt: signedAt,
         rejectionReason: dto.rejectionReason ?? null,
+        digitalSignature: signatureToken,
+        signedAt,
       })
       .where(eq(prescriptions.id, id));
 
@@ -266,6 +302,48 @@ export class PrescriptionService {
       .returning();
 
     return updated;
+  }
+
+  async getSignature(prescriptionId: string) {
+    const [rx] = await this.db
+      .select({
+        id: prescriptions.id,
+        rxNo: prescriptions.rxNo,
+        status: prescriptions.status,
+        verifiedBy: prescriptions.verifiedBy,
+        verifiedAt: prescriptions.verifiedAt,
+        digitalSignature: prescriptions.digitalSignature,
+        signedAt: prescriptions.signedAt,
+      })
+      .from(prescriptions)
+      .where(eq(prescriptions.id, prescriptionId))
+      .limit(1);
+
+    if (!rx) throw new NotFoundException(`Prescription ${prescriptionId} not found`);
+
+    if (!rx.digitalSignature) {
+      return {
+        hasSignature: false,
+        prescriptionId: rx.id,
+        rxNo: rx.rxNo,
+        status: rx.status,
+      };
+    }
+
+    // Verify the stored signature to detect any tampering since it was created.
+    const decoded = this.signatureService.verifyPrescriptionSignature(rx.digitalSignature);
+
+    return {
+      hasSignature: true,
+      prescriptionId: rx.id,
+      rxNo: rx.rxNo,
+      status: rx.status,
+      verifiedBy: rx.verifiedBy,
+      verifiedAt: rx.verifiedAt,
+      signedAt: rx.signedAt,
+      signature: decoded,
+      signatureValid: true,
+    };
   }
 
   private async buildPatientContext(patientId: string): Promise<PatientSafetyContext> {

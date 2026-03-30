@@ -59,6 +59,13 @@ export class PrescriptionController {
     return this.prescriptionService.verify(id, user.id, dto);
   }
 
+  @Get(':id/signature')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('pharmacist', 'super_admin', 'pharmacist_tech')
+  getSignature(@Param('id', ParseUUIDPipe) id: string) {
+    return this.prescriptionService.getSignature(id);
+  }
+
   @Post(':id/interventions')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('pharmacist', 'super_admin')
