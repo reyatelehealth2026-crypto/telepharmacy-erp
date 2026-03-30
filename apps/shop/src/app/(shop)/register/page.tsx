@@ -1,0 +1,317 @@
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { ArrowLeft, Shield, CheckCircle2, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useLiff } from '@/components/providers/liff-provider';
+import { registerPatient } from '@/lib/auth';
+import { useAuthStore } from '@/store/auth';
+
+const PDPA_VERSION = '1.0';
+
+const pdpaSections = [
+  {
+    title: 'ข้อมูลที่จัดเก็บ',
+    content: 'ชื่อ-นามสกุล, วันเกิด, เพศ, เบอร์โทร, ประวัติแพ้ยา, โรคประจำตัว, ยาที่ใช้, ประวัติสั่งซื้อ, ใบสั่งยา',
+  },
+  {
+    title: 'วัตถุประสงค์',
+    content: 'ให้บริการสั่งซื้อยา, ตรวจสอบความปลอดภัยยา, ให้คำปรึกษาโดยเภสัชกร, ส่งการแจ้งเตือน, ปรับปรุงบริการ',
+  },
+  {
+    title: 'สิทธิ์ของคุณ',
+    content: 'เข้าถึง/สำเนาข้อมูล, แก้ไขข้อมูล, ลบข้อมูล, คัดค้านการประมวลผล, ถอนความยินยอมได้ทุกเมื่อ',
+  },
+  {
+    title: 'ระยะเวลาจัดเก็บ',
+    content: 'ข้อมูลยาและใบสั่งยา: 10 ปี (ตาม พ.ร.บ. ยา), ข้อมูลทั่วไป: 5 ปีหลังยุติบริการ',
+  },
+];
+
+export default function RegisterPage() {
+  const router = useRouter();
+  const { liffProfile } = useLiff();
+  const { setAuth } = useAuthStore();
+
+  const [step, setStep] = useState<'pdpa' | 'profile'>('pdpa');
+  const [pdpaAgreed, setPdpaAgreed] = useState(false);
+  const [expandedPdpa, setExpandedPdpa] = useState<number | null>(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const [form, setForm] = useState({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    dateOfBirth: '',
+    gender: '' as '' | 'male' | 'female' | 'other',
+    weight: '',
+    height: '',
+  });
+
+  const updateField = (field: string, value: string) => {
+    setForm((f) => ({ ...f, [field]: value }));
+    setError('');
+  };
+
+  const handleRegister = async () => {
+    if (!form.firstName.trim() || !form.lastName.trim() || !form.phone.trim() || !form.dateOfBirth || !form.gender) {
+      setError('กรุณากรอกข้อมูลที่จำเป็นให้ครบ');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const res = await registerPatient({
+        lineUserId: liffProfile?.userId ?? '',
+        lineDisplayName: liffProfile?.displayName ?? form.firstName,
+        linePictureUrl: liffProfile?.pictureUrl,
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        phone: form.phone.trim(),
+        dateOfBirth: form.dateOfBirth,
+        gender: form.gender as 'male' | 'female' | 'other',
+        weight: form.weight ? parseFloat(form.weight) : undefined,
+        height: form.height ? parseFloat(form.height) : undefined,
+        pdpaConsent: true,
+        pdpaConsentVersion: PDPA_VERSION,
+      });
+
+      setAuth({
+        accessToken: res.accessToken,
+        refreshToken: res.refreshToken,
+        patient: res.patient,
+      });
+
+      router.replace('/onboarding/health');
+    } catch (err: any) {
+      setError(err?.message || 'สมัครสมาชิกไม่สำเร็จ กรุณาลองใหม่');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Step 1: PDPA Consent
+  if (step === 'pdpa') {
+    return (
+      <div className="pb-32">
+        <div className="flex items-center gap-3 px-4 py-3">
+          <Link href="/login" className="rounded-full p-1 hover:bg-muted">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <h1 className="text-lg font-bold">สมัครสมาชิก</h1>
+        </div>
+
+        <div className="space-y-4 px-4">
+          {/* PDPA Banner */}
+          <div className="rounded-xl bg-primary/5 border border-primary/20 p-4">
+            <div className="flex items-start gap-3">
+              <Shield className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+              <div>
+                <h2 className="text-sm font-bold text-primary">นโยบายคุ้มครองข้อมูลส่วนบุคคล</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  ตาม พ.ร.บ. คุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562 (PDPA)
+                  กรุณาอ่านและยอมรับก่อนสมัครสมาชิก
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* PDPA Sections */}
+          <div className="space-y-2">
+            {pdpaSections.map((section, i) => (
+              <div key={i} className="rounded-xl border overflow-hidden">
+                <button
+                  className="flex w-full items-center justify-between p-3 text-left hover:bg-muted/30"
+                  onClick={() => setExpandedPdpa(expandedPdpa === i ? null : i)}
+                >
+                  <span className="text-sm font-medium">{section.title}</span>
+                  {expandedPdpa === i ? (
+                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </button>
+                {expandedPdpa === i && (
+                  <div className="border-t px-3 py-2">
+                    <p className="text-xs text-muted-foreground leading-relaxed">{section.content}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Consent Checkbox */}
+          <label className="flex items-start gap-3 rounded-xl border p-4 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={pdpaAgreed}
+              onChange={(e) => setPdpaAgreed(e.target.checked)}
+              className="mt-0.5 h-5 w-5 rounded accent-primary"
+            />
+            <div>
+              <p className="text-sm font-medium">ยินยอมให้จัดเก็บและใช้ข้อมูล</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                ข้าพเจ้ายินยอมให้ REYA Pharmacy เก็บรวบรวม ใช้ และเปิดเผยข้อมูลส่วนบุคคล
+                ตามวัตถุประสงค์ที่ระบุข้างต้น
+              </p>
+            </div>
+          </label>
+        </div>
+
+        <div className="fixed bottom-16 left-0 right-0 z-40 border-t bg-white p-4">
+          <div className="mx-auto max-w-lg">
+            <Button
+              className="w-full"
+              size="lg"
+              disabled={!pdpaAgreed}
+              onClick={() => setStep('profile')}
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              ยอมรับและดำเนินการต่อ
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Step 2: Profile Setup
+  return (
+    <div className="pb-32">
+      <div className="flex items-center gap-3 px-4 py-3">
+        <button onClick={() => setStep('pdpa')} className="rounded-full p-1 hover:bg-muted">
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <div>
+          <h1 className="text-lg font-bold">ข้อมูลส่วนตัว</h1>
+          <p className="text-xs text-muted-foreground">ขั้นตอนที่ 1/2</p>
+        </div>
+      </div>
+
+      <div className="space-y-4 px-4">
+        {liffProfile?.pictureUrl && (
+          <div className="flex justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={liffProfile.pictureUrl}
+              alt="Profile"
+              className="h-20 w-20 rounded-full border-4 border-primary/20"
+            />
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">ชื่อ *</label>
+            <Input
+              className="mt-1"
+              placeholder="ชื่อจริง"
+              value={form.firstName}
+              onChange={(e) => updateField('firstName', e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">นามสกุล *</label>
+            <Input
+              className="mt-1"
+              placeholder="นามสกุล"
+              value={form.lastName}
+              onChange={(e) => updateField('lastName', e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="text-xs font-medium text-muted-foreground">เบอร์โทรศัพท์ *</label>
+          <Input
+            className="mt-1"
+            type="tel"
+            placeholder="08x-xxx-xxxx"
+            value={form.phone}
+            onChange={(e) => updateField('phone', e.target.value)}
+          />
+        </div>
+
+        <div>
+          <label className="text-xs font-medium text-muted-foreground">วันเกิด *</label>
+          <Input
+            className="mt-1"
+            type="date"
+            value={form.dateOfBirth}
+            onChange={(e) => updateField('dateOfBirth', e.target.value)}
+          />
+        </div>
+
+        <div>
+          <label className="text-xs font-medium text-muted-foreground">เพศ *</label>
+          <div className="mt-1 flex gap-2">
+            {[
+              { value: 'male', label: 'ชาย' },
+              { value: 'female', label: 'หญิง' },
+              { value: 'other', label: 'อื่นๆ' },
+            ].map((g) => (
+              <button
+                key={g.value}
+                onClick={() => updateField('gender', g.value)}
+                className={`flex-1 rounded-lg border py-2.5 text-sm font-medium transition-colors ${
+                  form.gender === g.value
+                    ? 'border-primary bg-secondary text-primary'
+                    : 'hover:bg-muted'
+                }`}
+              >
+                {g.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">น้ำหนัก (กก.)</label>
+            <Input
+              className="mt-1"
+              type="number"
+              placeholder="60"
+              value={form.weight}
+              onChange={(e) => updateField('weight', e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">ส่วนสูง (ซม.)</label>
+            <Input
+              className="mt-1"
+              type="number"
+              placeholder="170"
+              value={form.height}
+              onChange={(e) => updateField('height', e.target.value)}
+            />
+          </div>
+        </div>
+
+        {error && (
+          <p className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</p>
+        )}
+      </div>
+
+      <div className="fixed bottom-16 left-0 right-0 z-40 border-t bg-white p-4">
+        <div className="mx-auto max-w-lg">
+          <Button
+            className="w-full"
+            size="lg"
+            disabled={loading}
+            onClick={handleRegister}
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {loading ? 'กำลังสมัคร...' : 'สมัครสมาชิก'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}

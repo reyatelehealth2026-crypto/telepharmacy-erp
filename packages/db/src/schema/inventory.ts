@@ -6,6 +6,7 @@ import {
   decimal,
   date,
   timestamp,
+  index,
 } from "drizzle-orm/pg-core";
 import { lotStatusEnum, stockMovementTypeEnum } from "./enums";
 import { products } from "./products";
@@ -48,7 +49,12 @@ export const inventoryLots = pgTable("inventory_lots", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+}, (t) => [
+  index("inventory_lots_product_id_idx").on(t.productId),
+  index("inventory_lots_expiry_date_idx").on(t.expiryDate),
+  index("inventory_lots_status_idx").on(t.status),
+  index("inventory_lots_fefo_idx").on(t.productId, t.expiryDate, t.status),
+]);
 
 export const stockMovements = pgTable("stock_movements", {
   id: uuid("id").primaryKey().defaultRandom(),

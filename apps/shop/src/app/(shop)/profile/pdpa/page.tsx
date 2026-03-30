@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft, Shield, Eye, Database, Bell, Trash2, Download, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Shield, Eye, Database, Bell, Trash2, Download, ChevronDown, ChevronUp, FileText, History } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 
@@ -151,29 +151,47 @@ export default function PdpaPage() {
 
       {/* Data Rights Actions */}
       <div className="mx-4 mt-4 space-y-2">
+        <Link href="/profile/audit-trail" className="flex w-full items-center gap-3 rounded-xl border p-4 text-left hover:bg-muted/30 transition-colors">
+          <History className="h-4 w-4 text-primary shrink-0" />
+          <div>
+            <p className="text-sm font-medium">ประวัติการเข้าถึงข้อมูล</p>
+            <p className="text-xs text-muted-foreground">ดูบันทึกการเข้าถึงข้อมูลส่วนบุคคล</p>
+          </div>
+        </Link>
         <button className="flex w-full items-center gap-3 rounded-xl border p-4 text-left hover:bg-muted/30">
           <Download className="h-4 w-4 text-primary shrink-0" />
           <div>
             <p className="text-sm font-medium">ขอสำเนาข้อมูลของฉัน</p>
-            <p className="text-xs text-muted-foreground">ดาวน์โหลดข้อมูลส่วนบุคคลทั้งหมด</p>
+            <p className="text-xs text-muted-foreground">ดาวน์โหลดข้อมูลส่วนบุคคลทั้งหมด (JSON)</p>
           </div>
         </button>
-        <button className="flex w-full items-center gap-3 rounded-xl border border-red-200 p-4 text-left hover:bg-red-50">
+        <Link href="/profile/delete-account" className="flex w-full items-center gap-3 rounded-xl border border-red-200 p-4 text-left hover:bg-red-50 transition-colors">
           <Trash2 className="h-4 w-4 text-red-500 shrink-0" />
           <div>
-            <p className="text-sm font-medium text-red-700">ขอลบข้อมูลของฉัน</p>
-            <p className="text-xs text-red-500">ลบข้อมูลส่วนบุคคลทั้งหมดออกจากระบบ</p>
+            <p className="text-sm font-medium text-red-700">ลบบัญชีของฉัน</p>
+            <p className="text-xs text-red-500">ถอนความยินยอมและลบข้อมูลตาม PDPA</p>
           </div>
-        </button>
+        </Link>
       </div>
 
-      {/* Contact */}
+      {/* Contact DPO */}
       <div className="mx-4 mt-4 rounded-xl bg-muted/50 p-4">
         <p className="text-xs text-muted-foreground text-center">
           หากมีคำถามเกี่ยวกับข้อมูลส่วนบุคคล ติดต่อ DPO ได้ที่{' '}
           <a href="mailto:dpo@reyapharmacy.com" className="text-primary underline">
             dpo@reyapharmacy.com
           </a>
+          {' '}หรือ{' '}
+          <a href="tel:021234567" className="text-primary underline">
+            02-123-4567
+          </a>
+        </p>
+      </div>
+      
+      {/* Breach Notification Note */}
+      <div className="mx-4 mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+        <p className="text-xs text-amber-700 text-center">
+          ในกรณีที่มีการละเมิดข้อมูลส่วนบุคคล เราจะแจ้งให้คุณทราบภายใน 72 ชั่วโมง ตามมาตรา 37 แห่ง พ.ร.บ. PDPA
         </p>
       </div>
     </div>

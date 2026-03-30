@@ -9,6 +9,7 @@ import {
   date,
   jsonb,
   timestamp,
+  index,
 } from "drizzle-orm/pg-core";
 import {
   rxStatusEnum,
@@ -56,7 +57,12 @@ export const prescriptions = pgTable("prescriptions", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+}, (t) => [
+  index("prescriptions_patient_id_idx").on(t.patientId),
+  index("prescriptions_status_idx").on(t.status),
+  index("prescriptions_created_at_idx").on(t.createdAt),
+  index("prescriptions_ai_priority_idx").on(t.aiPriority),
+]);
 
 export const prescriptionItems = pgTable("prescription_items", {
   id: uuid("id").primaryKey().defaultRandom(),

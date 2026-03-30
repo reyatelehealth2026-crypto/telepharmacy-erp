@@ -7,6 +7,7 @@ import {
   decimal,
   date,
   timestamp,
+  index,
 } from "drizzle-orm/pg-core";
 import {
   patientTitleEnum,
@@ -63,7 +64,11 @@ export const patients = pgTable("patients", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+}, (t) => [
+  index("patients_line_user_id_idx").on(t.lineUserId),
+  index("patients_phone_idx").on(t.phone),
+  index("patients_status_idx").on(t.status),
+]);
 
 export const patientAllergies = pgTable("patient_allergies", {
   id: uuid("id").primaryKey().defaultRandom(),

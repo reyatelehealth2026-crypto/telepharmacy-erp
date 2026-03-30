@@ -33,6 +33,7 @@
     "drizzle-orm": "^0.39",
     "helmet": "^8",
     "ioredis": "^5.10.1",
+    "meilisearch": "^0.47",
     "passport": "^0.7",
     "passport-jwt": "^4",
     "passport-local": "^1",
@@ -40,6 +41,22 @@
     "reflect-metadata": "^0.2",
     "rxjs": "^7",
     "zod": "^3"
+  },
+  "jest": {
+    "moduleFileExtensions": ["js", "json", "ts"],
+    "rootDir": "src",
+    "testRegex": ".*\\.spec\\.ts$",
+    "transform": {
+      "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "collectCoverageFrom": ["**/*.(t|j)s"],
+    "coverageDirectory": "../coverage",
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^@telepharmacy/db$": "<rootDir>/../../../packages/db/src/index.ts",
+      "^@telepharmacy/ai$": "<rootDir>/../../../packages/ai/src/index.ts",
+      "^@telepharmacy/ai/(.*)$": "<rootDir>/../../../packages/ai/src/$1.ts"
+    }
   },
   "devDependencies": {
     "@nestjs/cli": "^11",

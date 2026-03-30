@@ -1,47 +1,89 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle, Clock, AlertCircle, Pill, FileText } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import {
+  ArrowLeft,
+  FileText,
+  CheckCircle,
+  Clock,
+  AlertCircle,
+  Loader2,
+  RefreshCw,
+  ChevronRight,
+} from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-
-const mockPrescriptions = [
-  {
-    id: '1',
-    rxNo: 'RX-20260330-001',
-    status: 'approved',
-    createdAt: '2026-03-30T07:00:00',
-    itemCount: 3,
-    totalAmount: 350,
-  },
-  {
-    id: '2',
-    rxNo: 'RX-20260329-002',
-    status: 'ai_processing',
-    createdAt: '2026-03-29T14:00:00',
-    itemCount: 0,
-    totalAmount: 0,
-  },
-];
-
-const statusConfig: Record<string, { label: string; color: string; icon: typeof CheckCircle }> = {
-  received: { label: 'รับแล้ว', color: 'bg-blue-100 text-blue-800', icon: Clock },
-  ai_processing: { label: 'กำลังตรวจสอบ', color: 'bg-amber-100 text-amber-800', icon: Clock },
-  ai_completed: { label: 'รอเภสัชกร', color: 'bg-amber-100 text-amber-800', icon: Clock },
-  approved: { label: 'อนุมัติแล้ว', color: 'bg-green-100 text-green-800', icon: CheckCircle },
-  rejected: { label: 'ไม่อนุมัติ', color: 'bg-red-100 text-red-800', icon: AlertCircle },
-};
+import { useAuthStore } from '@/store/auth';
+import { getMyPrescriptions, type Prescription, getRxStatusConfig } from '@/lib/prescriptions';
 
 export default function RxStatusPage() {
+  const router = useRouter();
+  const { accessToken, isAuthenticated } = useAuthStore();
+  const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace('/login');
+      return;
+    }
+    fetchPrescriptions();
+  }, [isAuthenticated, router]);
+
+  const fetchPrescriptions = async () => {
+    if (!accessToken) return;
+    setLoading(true);
+    try {
+      const res = await getMyPrescriptions(accessToken, 1, 20);
+      setPrescriptions(res.data);
+    } catch {
+      // Error handled silently
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchPrescriptions();
+    setRefreshing(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-[80vh] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
-    <div>
-      <div className="flex items-center gap-3 px-4 py-3">
-        <Link href="/" className="rounded-full p-1 hover:bg-muted">
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <h1 className="text-lg font-bold">สถานะใบสั่งยา</h1>
+    <div className="pb-20">
+      <div className="flex items-center justify-between px-4 py-3">
+        <div className="flex items-center gap-3">
+          <Link href="/" className="rounded-full p-1 hover:bg-muted">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <div>
+            <h1 className="text-lg font-bold">ใบสั่งยาของฉัน</h1>
+            <p className="text-xs text-muted-foreground">{prescriptions.length} รายการ</p>
+          </div>
+        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="rounded-full p-2 hover:bg-muted disabled:opacity-50"
+        >
+          <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+        </button>
       </div>
 
       <div className="space-y-3 px-4">
-        {mockPrescriptions.map((rx) => {
-          const config = statusConfig[rx.status] ?? { label: 'รับแล้ว', color: 'bg-blue-100 text-blue-800', icon: Clock };
+        {prescriptions.map((rx) => {
+          const statusConfig = getRxStatusConfig(rx.status);
           return (
             <Link
               key={rx.id}
@@ -51,26 +93,27 @@ export default function RxStatusPage() {
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
                 <FileText className="h-5 w-5 text-primary" />
               </div>
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">{rx.rxNo}</span>
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${config.color}`}>
-                    {config.label}
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusConfig.color}`}>
+                    {statusConfig.label}
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="mt-1 text-xs text-muted-foreground">
                   {new Date(rx.createdAt).toLocaleDateString('th-TH')}
                   {rx.itemCount > 0 && ` · ${rx.itemCount} รายการ`}
-                  {rx.totalAmount > 0 && ` · ฿${rx.totalAmount}`}
+                  {rx.totalAmount && ` · ${rx.totalAmount.toLocaleString()} ฿`}
                 </p>
               </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
             </Link>
           );
         })}
 
-        {mockPrescriptions.length === 0 && (
+        {prescriptions.length === 0 && (
           <div className="py-12 text-center">
-            <Pill className="mx-auto h-12 w-12 text-muted-foreground/30" />
+            <FileText className="mx-auto h-12 w-12 text-muted-foreground/30" />
             <p className="mt-2 text-sm text-muted-foreground">ยังไม่มีใบสั่งยา</p>
             <Link
               href="/rx/upload"

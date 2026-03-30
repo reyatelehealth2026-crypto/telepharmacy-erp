@@ -6,6 +6,7 @@ import {
   boolean,
   jsonb,
   timestamp,
+  index,
 } from "drizzle-orm/pg-core";
 import { drugClassificationEnum } from "./enums";
 
@@ -44,7 +45,11 @@ export const drugs = pgTable("drugs", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+}, (t) => [
+  index("drugs_generic_name_idx").on(t.genericName),
+  index("drugs_atc_code_idx").on(t.atcCode),
+  index("drugs_classification_idx").on(t.classification),
+]);
 
 export const drugInteractions = pgTable("drug_interactions", {
   id: uuid("id").primaryKey().defaultRandom(),

@@ -114,3 +114,19 @@ export async function createMedication(token: string, data: Omit<Medication, 'id
 export async function deleteMedication(token: string, medicationId: string): Promise<void> {
   await api.delete(`/v1/patients/me/medications/${medicationId}`, token);
 }
+
+export interface ProfileUpdateData {
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  dateOfBirth?: string;
+  gender?: string;
+  weight?: number;
+  height?: number;
+  bloodType?: string;
+}
+
+export async function updateProfile(token: string, data: ProfileUpdateData): Promise<PatientProfile> {
+  const res = await api.patch<any>('/v1/patients/me', data, token);
+  return unwrap<PatientProfile>(res);
+}

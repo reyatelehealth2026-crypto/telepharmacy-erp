@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Noto_Sans_Thai } from 'next/font/google';
 import { Toaster } from 'sonner';
+import { LiffProvider } from '@/components/providers/liff-provider';
 import './globals.css';
 
 const notoSansThai = Noto_Sans_Thai({
@@ -28,7 +29,9 @@ export default function RootLayout({
   return (
     <html lang="th" suppressHydrationWarning>
       <body className={`${notoSansThai.variable} font-sans antialiased`}>
-        {children}
+        <LiffProvider>
+          {children}
+        </LiffProvider>
         <Toaster position="top-center" richColors />
       </body>
     </html>

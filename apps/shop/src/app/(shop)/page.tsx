@@ -7,6 +7,7 @@ import {
   Sparkles,
   Stethoscope,
   Leaf,
+  Bot,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProductCard } from '@/components/product/product-card';
@@ -15,7 +16,7 @@ import { getFeaturedProducts } from '@/lib/products';
 const quickActions = [
   { href: '/search', icon: Pill, label: 'สั่งซื้อยา', color: 'bg-emerald-500' },
   { href: '/rx/upload', icon: FileImage, label: 'ส่งใบสั่งยา', color: 'bg-blue-500' },
-  { href: '/consultation', icon: MessageCircle, label: 'ปรึกษาเภสัชกร', color: 'bg-purple-500' },
+  { href: '/ai-consult', icon: Bot, label: 'AI ปรึกษาอาการ', color: 'bg-purple-600' },
   { href: '/orders', icon: Repeat, label: 'สั่งยาซ้ำ', color: 'bg-amber-500' },
 ];
 

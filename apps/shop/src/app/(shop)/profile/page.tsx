@@ -14,6 +14,8 @@ import {
   Clock,
   Loader2,
   User,
+  Pencil,
+  Settings,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -94,7 +96,8 @@ export default function ProfilePage() {
       badge: loyaltyPoints > 0 ? `${loyaltyPoints.toLocaleString()} แต้ม` : undefined,
       color: 'text-yellow-500',
     },
-    { href: '/notifications', icon: Bell, label: 'การแจ้งเตือน', color: 'text-indigo-500' },
+    { href: '/profile/notifications', icon: Bell, label: 'ตั้งค่าการแจ้งเตือน', color: 'text-indigo-500' },
+    { href: '/notifications', icon: Bell, label: 'ประวัติการแจ้งเตือน', color: 'text-indigo-500' },
     { href: '/profile/pdpa', icon: Shield, label: 'ความเป็นส่วนตัว (PDPA)', color: 'text-gray-500' },
   ];
 
@@ -106,7 +109,7 @@ export default function ProfilePage() {
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/20 text-2xl">
             {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : <User className="h-8 w-8" />}
           </div>
-          <div>
+          <div className="flex-1 min-w-0">
             <h1 className="text-lg font-bold">{displayName}</h1>
             <p className="text-sm text-emerald-100">{patientNo}</p>
             <div className="mt-1 flex items-center gap-2">
@@ -119,6 +122,12 @@ export default function ProfilePage() {
               )}
             </div>
           </div>
+          <Link
+            href="/profile/edit"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+          >
+            <Pencil className="h-4 w-4" />
+          </Link>
         </div>
       </div>
 

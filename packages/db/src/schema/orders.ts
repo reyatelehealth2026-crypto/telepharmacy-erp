@@ -8,6 +8,7 @@ import {
   decimal,
   jsonb,
   timestamp,
+  index,
 } from "drizzle-orm/pg-core";
 import {
   orderTypeEnum,
@@ -82,7 +83,11 @@ export const orders = pgTable("orders", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+}, (t) => [
+  index("orders_patient_id_idx").on(t.patientId),
+  index("orders_status_idx").on(t.status),
+  index("orders_created_at_idx").on(t.createdAt),
+]);
 
 export const orderItems = pgTable("order_items", {
   id: uuid("id").primaryKey().defaultRandom(),

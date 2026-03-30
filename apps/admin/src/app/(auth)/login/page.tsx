@@ -1,10 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuth } from '@/lib/auth-context';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -16,22 +19,9 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
-      const res = await fetch(`${apiUrl}/v1/auth/staff-login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.message ?? 'เข้าสู่ระบบไม่สำเร็จ');
-      }
-
-      const data = await res.json();
-      localStorage.setItem('access_token', data.data?.accessToken ?? data.accessToken);
-      localStorage.setItem('refresh_token', data.data?.refreshToken ?? data.refreshToken);
-      router.push('/dashboard');
+      await login(email, password);
+      const from = searchParams.get('from') ?? '/dashboard';
+      router.push(from);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'เข้าสู่ระบบไม่สำเร็จ');
     } finally {
