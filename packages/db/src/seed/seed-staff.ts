@@ -8,7 +8,7 @@ const db = drizzle(client);
 
 const staffData = [
   {
-    email: "admin@re-ya.com",
+    email: "admin@reya.com",
     password: "Admin@reya2024!",
     title: "mr" as const,
     firstName: "ผู้ดูแล",

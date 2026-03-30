@@ -51,6 +51,8 @@ export const prescriptions = pgTable("prescriptions", {
   orderId: uuid("order_id"),
   verifiedBy: uuid("verified_by").references(() => staff.id),
   verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  digitalSignature: text("digital_signature"),
+  signedAt: timestamp("signed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
