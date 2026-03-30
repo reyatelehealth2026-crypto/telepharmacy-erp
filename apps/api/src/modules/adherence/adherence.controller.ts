@@ -20,7 +20,7 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
 @ApiTags('adherence')
 @ApiBearerAuth()
-@Controller('v1/adherence')
+@Controller('adherence')
 @UseGuards(JwtAuthGuard)
 export class AdherenceController {
   constructor(private readonly adherenceService: AdherenceService) {}

@@ -23,7 +23,7 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
 @ApiTags('compliance')
 @ApiBearerAuth()
-@Controller('v1/compliance')
+@Controller('compliance')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ComplianceController {
   constructor(

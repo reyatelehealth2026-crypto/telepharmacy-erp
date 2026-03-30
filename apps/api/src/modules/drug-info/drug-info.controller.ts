@@ -21,7 +21,7 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
 @ApiTags('drug-info')
 @ApiBearerAuth()
-@Controller('v1/drug-info')
+@Controller('drug-info')
 @UseGuards(JwtAuthGuard)
 export class DrugInfoController {
   constructor(private readonly drugInfoService: DrugInfoService) {}

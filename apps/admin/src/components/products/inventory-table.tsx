@@ -51,7 +51,7 @@ export function InventoryTable({ products }: Props) {
   const handleRefreshStock = async (productId: string) => {
     setRefreshing(productId);
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_ADMIN_API_URL ?? 'http://localhost:3000'}/v1/products/${productId}/stock`);
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000'}/v1/products/${productId}/stock`);
     } finally {
       setRefreshing(null);
     }

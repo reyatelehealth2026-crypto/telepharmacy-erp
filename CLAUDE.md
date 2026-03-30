@@ -47,44 +47,108 @@ pnpm db:generate          # Generate Drizzle migrations
 pnpm db:migrate           # Run migrations
 pnpm db:push              # Push schema directly (dev)
 pnpm db:studio            # Open Drizzle Studio
+pnpm db:seed              # Seed drugs, staff accounts, allergy groups
 
 # Single app test (from repo root)
 pnpm --filter @telepharmacy/api test
+# Run a single spec file
+pnpm --filter @telepharmacy/api test -- --testPathPattern=drug-interaction
 ```
 
-## Architecture
+## API Architecture (NestJS)
 
-### API (NestJS)
-- **Modules:** `HealthModule`, `AuthModule`, `LineModule`, `PatientModule`, `OdooModule`, `ProductModule`
-- **Auth:** LINE Login for patients (LIFF), JWT for staff with RBAC
-- **Rate limiting:** 60 requests/60s via `ThrottlerModule`
-- **Validation:** Zod-based global validation pipe
-- **Config files:** `apps/api/src/config/` — app, database, jwt, line, odoo configs
+### Global Setup (`apps/api/src/main.ts`)
+- Global prefix: `v1` — all routes are `/v1/...`
+- **Do NOT include `v1/` in `@Controller()` decorators** — it creates double-prefix `/v1/v1/...`
+- Global guards: `JwtAuthGuard` + `RolesGuard` + `PatientOnlyGuard` (registered in `AuthModule` via `APP_GUARD`)
+- Global interceptor: `ResponseInterceptor` wraps all responses as `{ success: true, data: ..., message: "OK" }`
+- Global filter: `HttpExceptionFilter` catches all exceptions → `{ success: false, error: { code, message } }`
 
-### Frontend Apps
-- **Admin:** Staff login → pharmacist Rx queue, order management, patient records, inventory, reports
-- **Shop:** Patient-facing LIFF app — catalog, search, cart, checkout (PromptPay QR), prescription upload, consultation chat
+### Auth Pattern
+- `@Public()` decorator — skips JWT guard for a route
+- `@Roles('pharmacist', 'admin')` — restricts to specific staff roles
+- `@PatientOnly()` — restricts to LINE-authenticated patients
+- `@CurrentUser()` — injects the authenticated user into the handler
+- `@SkipResponseWrap()` — used on LINE webhook to return raw body
+
+### Module Structure
+Every module follows: `module.ts` → `controller.ts` → `service.ts` → `dto/`
+
+Current modules in `apps/api/src/modules/`:
+`auth`, `line`, `patient`, `product`, `odoo`, `drug-safety`, `prescription`, `inventory`, `payment`, `orders`, `loyalty`, `reports`, `adr`, `adherence`, `drug-info`, `compliance`, `health`
+
+### Controller Route Prefixes (actual URL = `/v1/<prefix>/<route>`)
+| Controller | Prefix | Auth |
+|-----------|--------|------|
+| auth | `auth` | Mixed (`@Public` on login) |
+| patient | `patients` | Patient JWT |
+| product | `products` | `@Public` on GET |
+| prescription | `prescriptions` | Patient/Staff JWT |
+| orders | `orders` | Patient JWT |
+| staff orders | `staff/orders` | Staff JWT |
+| staff patients | `staff/patients` | Staff JWT |
+| inventory | `staff/inventory` | Staff JWT |
+| reports | `staff/reports` | Staff JWT |
+| loyalty | `loyalty` | Patient JWT |
+| staff loyalty | `staff/loyalty` | Staff JWT |
+| adherence | `adherence` | Patient JWT |
+| adr | `adr` | Patient/Staff JWT |
+| compliance | `compliance` | Staff JWT |
+| drug-info | `drug-info` | Staff JWT |
+
+### BullMQ Queues (require Redis)
+- `ocr-queue` — prescription OCR processing
+- `adherence-queue` — medication reminder jobs
+
+### Response Format
+All API responses (success): `{ success: true, data: <payload>, message: "OK" }`
+All API errors: `{ success: false, error: { code: "NOT_FOUND"|"UNAUTHORIZED"|..., message: "..." } }`
+
+## Frontend Apps
+
+### Admin (`apps/admin/src/`)
+- **Auth:** Cookie-based (`access_token` cookie read by `middleware.ts`). Login calls `POST /v1/auth/staff-login` with `{ email, password }`.
+- **API client:** `lib/api-client.ts` — `apiFetch(path)` prepends `NEXT_PUBLIC_API_URL`. `lib/use-api.ts` — SWR-style hook for GET requests.
+- **Products lib:** `lib/products.ts` — server-side fetch for inventory pages (also uses `NEXT_PUBLIC_API_URL`).
+- **Middleware:** Redirects unauthenticated requests to `/login?from=<path>`.
+- **Pages:** `/login`, `/dashboard`, `/dashboard/pharmacist`, `/dashboard/patients`, `/dashboard/orders`, `/dashboard/inventory`, `/dashboard/reports`, `/dashboard/products`, `/dashboard/settings`
+
+### Shop (`apps/shop/src/`)
+- **Auth:** LIFF SDK (`lib/liff.ts`) — `LiffProvider` initializes on mount, stores token in Zustand `authStore`.
+- **State:** Zustand stores in `store/` — `cart.ts` (with save-for-later), `auth.ts`, `address.ts`. Cart persists to localStorage.
+- **LIFF Provider:** `components/providers/liff-provider.tsx` — wraps the app, calls `liff.init()` with `NEXT_PUBLIC_LIFF_ID`.
 
 ### Shared Packages
-- `@telepharmacy/db` — Import schema modules directly; relations defined in `relations.ts`
-- `@telepharmacy/shared` — Use sub-path imports: `@telepharmacy/shared/types`, `/validators`, `/constants`, `/utils`
-- `@telepharmacy/ai` — Sub-path imports: `@telepharmacy/ai/ocr`, `/chatbot`, `/drug-checker`
+- `@telepharmacy/db` — Import schema tables directly (e.g., `import { products } from '@telepharmacy/db'`)
+- `@telepharmacy/shared` — Sub-path imports: `/types`, `/validators`, `/constants`, `/utils`
+- `@telepharmacy/ai` — Sub-path imports: `/ocr`, `/chatbot`, `/drug-checker`
 
-### Database (PostgreSQL 16 + Drizzle ORM)
-Schema organized in `packages/db/src/schema/` by domain: `enums`, `staff`, `patients`, `drugs`, `products`, `inventory`, `prescriptions`, `orders`, `loyalty`, `chat`, `notifications`, `content`, `complaints`, `system`.
+## Database (PostgreSQL 16 + Drizzle ORM)
 
-### External Integrations
-- **LINE Messaging API** — Webhook handler in `LineModule`, Flex Messages for order updates
-- **Odoo ERP** — Product catalog sync via `OdooModule` (base URL: `erp.cnyrxapp.com`)
-- **Meilisearch** — Full-text product search (Thai language support)
-- **MinIO** — S3-compatible storage for prescription images, product photos
-- **Gemini 2.5 Pro** — OCR prescription parsing, drug interaction checking, patient chatbot
+Schema in `packages/db/src/schema/` by domain:
+`enums` → `staff` → `patients` → `drugs` → `products` → `inventory` → `prescriptions` → `orders` → `loyalty` → `chat` → `notifications` → `content` → `complaints` → `system` → `clinical`
 
-## Infrastructure (docker-compose.yml)
+Relations are in `relations.ts` (separate from table definitions).
 
-Dev services: PostgreSQL 16 (5432), Redis 7 (6379), Meilisearch (7700), MinIO (9000/9001), Traefik (80/443/8080), Prometheus (9090), Grafana (3010).
+Seed scripts: `packages/db/src/seed/seed-drugs.ts`, `seed-staff.ts`
 
-Production adds app containers with Traefik routing to `api/admin/shop.re-ya.com` with Let's Encrypt TLS.
+## Infrastructure
+
+### Docker Compose
+- `docker-compose.yml` — dev services only (PostgreSQL, Redis, Meilisearch, MinIO, Traefik, Prometheus, Grafana)
+- `docker-compose.prod.yml` — production (adds `api`, `admin`, `shop` app containers with Traefik TLS)
+
+### Dockerfiles
+- `Dockerfile.api`, `Dockerfile.admin`, `Dockerfile.shop`
+- Build args for `NEXT_PUBLIC_*` env vars must be declared as `ARG` **and** set as `ENV VARNAME=${VARNAME}` (not `ENV VARNAME=`) so Next.js bakes them into the bundle at build time.
+
+### Production URLs
+- API: `https://api.re-ya.com` (health: `GET /v1/health`)
+- Admin: `https://admin.re-ya.com`
+- Shop: `https://shop.re-ya.com`
+
+### Environment Variables
+The admin and shop apps use `NEXT_PUBLIC_API_URL` for the backend URL. This is a build-time variable passed as a Docker build arg — it must be set correctly in `docker-compose.prod.yml` before rebuilding.
 
 ## Key Domain Concepts
 

@@ -22,7 +22,7 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
 @ApiTags('adr')
 @ApiBearerAuth()
-@Controller('v1/adr')
+@Controller('adr')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('pharmacist', 'super_admin', 'pharmacist_tech')
 export class AdrController {

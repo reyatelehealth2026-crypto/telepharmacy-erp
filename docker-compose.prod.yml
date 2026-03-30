@@ -58,7 +58,7 @@ services:
       context: .
       dockerfile: Dockerfile.admin
       args:
-        NEXT_PUBLIC_ADMIN_API_URL: https://api.re-ya.com
+        NEXT_PUBLIC_API_URL: https://api.re-ya.com
     container_name: telepharmacy-admin
     restart: unless-stopped
     ports:

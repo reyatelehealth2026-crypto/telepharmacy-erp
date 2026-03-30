@@ -1,7 +1,20 @@
 {
   "permissions": {
     "allow": [
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "WebFetch(domain:api.re-ya.com)",
+      "WebFetch(domain:admin.re-ya.com)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" -X POST https://api.re-ya.com/v1/auth/login -H \"Content-Type: application/json\" -d '{\"\"username\"\":\"\"test\"\",\"\"password\"\":\"\"test\"\"}')",
+      "Bash(curl -s -w \"\\\\nHTTP_STATUS:%{http_code}\" -X POST https://api.re-ya.com/v1/auth/staff/login -H \"Content-Type: application/json\" -d '{\"\"username\"\":\"\"test\"\",\"\"password\"\":\"\"test\"\"}')",
+      "Bash(curl -s -w \"\\\\nHTTP_STATUS:%{http_code}\" https://api.re-ya.com/v1/prescriptions)",
+      "Bash(curl -s -w \"\\\\nHTTP_STATUS:%{http_code}\" https://api.re-ya.com/v1/products)",
+      "Bash(curl -s -w \"\\\\nHTTP_STATUS:%{http_code}\" -X POST https://api.re-ya.com/v1/auth/staff-login -H \"Content-Type: application/json\" -d '{\"\"username\"\":\"\"admin\"\",\"\"password\"\":\"\"wrongpassword\"\"}')",
+      "Bash(curl -s -w \"\\\\nHTTP_STATUS:%{http_code}\" https://api.re-ya.com/v1/products?limit=5)",
+      "Bash(curl -s https://api.re-ya.com/v1/auth/staff-login -X POST -H \"Content-Type: application/json\" --data-raw '{\"\"email\"\":\"\"admin@reya.com\"\",\"\"password\"\":\"\"Test1234\"\"}')",
+      "Bash(curl -s https://api.re-ya.com/v1/products)",
+      "Bash(curl -s -w \"\\\\nHTTP:%{http_code}\" https://api.re-ya.com/v1/patients -H \"Authorization: Bearer dummy\" echo \"\" curl -s -w \"\\\\nHTTP:%{http_code}\" https://api.re-ya.com/v1/loyalty -H \"Authorization: Bearer dummy\" echo \"\" grep -A2 \"@Get\\\\b\" /c/Users/Administrator/telepharmacy-erp/apps/api/src/modules/patient/patient.controller.ts)",
+      "Bash(ls:*)",
+      "Bash(head -10 find /c/Users/Administrator/telepharmacy-erp/packages/db -name drizzle.config*)"
     ]
   }
 }

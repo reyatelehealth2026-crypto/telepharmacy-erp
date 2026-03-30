@@ -45,3 +45,6 @@ grafana_data/
 # Misc
 *.tsbuildinfo
 .eslintcache
+
+# Local Netlify folder
+.netlify
