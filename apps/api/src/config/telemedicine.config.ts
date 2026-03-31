@@ -70,7 +70,7 @@ export const telemedicineConfig = registerAs('telemedicine', () => ({
     agoraTokenPrefix: 'agora:token:',
     consentScrollPrefix: 'consent:scroll:',
     scopeCachePrefix: 'scope:cache:',
-    licenseCache Prefix: 'license:cache:',
+    licenseCachePrefix: 'license:cache:',
     auditHashKey: 'audit:hash-chain:latest',
   },
 
