@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import {
   CheckCircle,
   QrCode,
@@ -11,24 +12,42 @@ import {
   Loader2,
   ShoppingBag,
   FileText,
+  AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/auth';
-import { uploadPaymentSlip } from '@/lib/orders';
+import { getOrder, uploadPaymentSlip, type Order } from '@/lib/orders';
+import { formatPrice } from '@/lib/utils';
 import { toast } from 'sonner';
 
-export default function CheckoutSuccessPage() {
+function SuccessContent() {
+  const searchParams = useSearchParams();
+  const orderId = searchParams.get('orderId');
+  const qrBase64 = searchParams.get('qr');
   const { accessToken } = useAuthStore();
+
+  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
   const [slipFile, setSlipFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [slipUploaded, setSlipUploaded] = useState(false);
 
+  useEffect(() => {
+    if (!orderId || !accessToken) {
+      setLoading(false);
+      return;
+    }
+    getOrder(accessToken, orderId)
+      .then(setOrder)
+      .catch(() => toast.error('ไม่สามารถโหลดข้อมูลออเดอร์ได้'))
+      .finally(() => setLoading(false));
+  }, [orderId, accessToken]);
+
   const handleSlipUpload = async () => {
-    if (!slipFile || !accessToken) return;
+    if (!slipFile || !accessToken || !orderId) return;
     setUploading(true);
     try {
-      // In production, orderId would come from the order creation response
-      const res = await uploadPaymentSlip(accessToken, 'latest', slipFile);
+      const res = await uploadPaymentSlip(accessToken, orderId, slipFile);
       setSlipUploaded(true);
       if (res.verified) {
         toast.success('ตรวจสอบสลิปสำเร็จ ยืนยันการชำระเงินแล้ว');
@@ -42,6 +61,34 @@ export default function CheckoutSuccessPage() {
     }
   };
 
+  // No orderId in URL
+  if (!orderId && !loading) {
+    return (
+      <div className="flex flex-col items-center px-6 py-20">
+        <AlertCircle className="h-12 w-12 text-muted-foreground" />
+        <h1 className="mt-4 text-lg font-bold">ไม่พบข้อมูลออเดอร์</h1>
+        <p className="mt-1 text-sm text-muted-foreground">กรุณาตรวจสอบออเดอร์ของคุณที่หน้ารายการสั่งซื้อ</p>
+        <Link
+          href="/orders"
+          className="mt-6 flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+        >
+          <ShoppingBag className="h-4 w-4" />
+          ไปหน้าออเดอร์
+        </Link>
+      </div>
+    );
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center px-6 py-20">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <p className="mt-4 text-sm text-muted-foreground">กำลังโหลดข้อมูลออเดอร์...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col items-center px-6 py-10">
       {/* Success Icon */}
@@ -50,6 +97,9 @@ export default function CheckoutSuccessPage() {
       </div>
       <h1 className="mt-4 text-xl font-bold">สั่งซื้อสำเร็จ!</h1>
       <p className="mt-1 text-sm text-muted-foreground">ขอบคุณที่ใช้บริการ REYA Pharmacy</p>
+      {order && (
+        <p className="mt-1 text-xs text-muted-foreground">หมายเลขออเดอร์: {order.orderNo}</p>
+      )}
 
       {/* PromptPay QR Section */}
       <div className="mt-6 w-full max-w-sm rounded-xl border p-4">
@@ -58,12 +108,28 @@ export default function CheckoutSuccessPage() {
           <h2 className="text-sm font-bold">ชำระเงินผ่าน PromptPay</h2>
         </div>
 
-        {/* QR Code placeholder */}
+        {/* QR Code */}
         <div className="flex flex-col items-center rounded-lg bg-white p-4">
-          <div className="flex h-48 w-48 items-center justify-center rounded-lg border-2 border-dashed bg-muted">
-            <QrCode className="h-16 w-16 text-muted-foreground/30" />
-          </div>
-          <p className="mt-2 text-sm font-bold text-primary">฿0.00</p>
+          {qrBase64 ? (
+            <img
+              src={`data:image/png;base64,${qrBase64}`}
+              alt="PromptPay QR Code"
+              className="h-48 w-48 rounded-lg"
+            />
+          ) : order?.payment.qrCodeUrl ? (
+            <img
+              src={order.payment.qrCodeUrl}
+              alt="PromptPay QR Code"
+              className="h-48 w-48 rounded-lg"
+            />
+          ) : (
+            <div className="flex h-48 w-48 items-center justify-center rounded-lg border-2 border-dashed bg-muted">
+              <QrCode className="h-16 w-16 text-muted-foreground/30" />
+            </div>
+          )}
+          <p className="mt-2 text-sm font-bold text-primary">
+            {order ? formatPrice(order.totalAmount) : '฿0.00'}
+          </p>
           <p className="text-xs text-muted-foreground">REYA Pharmacy Co., Ltd.</p>
         </div>
 
@@ -158,5 +224,20 @@ export default function CheckoutSuccessPage() {
         </Link>
       </div>
     </div>
+  );
+}
+
+export default function CheckoutSuccessPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex flex-col items-center px-6 py-20">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="mt-4 text-sm text-muted-foreground">กำลังโหลด...</p>
+        </div>
+      }
+    >
+      <SuccessContent />
+    </Suspense>
   );
 }

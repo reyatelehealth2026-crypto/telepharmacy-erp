@@ -19,6 +19,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { useAuthGuard } from '@/lib/use-auth-guard';
+import { submitAdrReport } from '@/lib/adr';
 
 const SEVERITY_OPTIONS = [
   { value: 'mild', label: 'เล็กน้อย', desc: 'ไม่ต้องหยุดยา ไม่ต้องรักษา' },
@@ -36,6 +38,7 @@ const CAUSALITY_CRITERIA = [
 
 export default function AdrReportPage() {
   const router = useRouter();
+  const { loading: authLoading, token } = useAuthGuard();
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [showCausality, setShowCausality] = useState(false);
@@ -56,13 +59,25 @@ export default function AdrReportPage() {
       return;
     }
 
+    if (!token) return;
     setSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
-      setSubmitting(false);
+    try {
+      await submitAdrReport(token, {
+        drugName: form.drugName,
+        startDate: form.startDate || undefined,
+        reactionDate: form.reactionDate || undefined,
+        symptoms: form.symptoms,
+        severity: form.severity,
+        outcome: form.outcome || undefined,
+        causalityAssessment: causalityResult.level,
+      });
       setSubmitted(true);
       toast.success('ส่งรายงานผลข้างเคียงสำเร็จ');
-    }, 1500);
+    } catch (err: any) {
+      toast.error(err?.message || 'ส่งรายงานไม่สำเร็จ กรุณาลองใหม่');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const updateField = (field: string, value: string) => {
@@ -86,6 +101,8 @@ export default function AdrReportPage() {
     if (criteria === 1) return { level: 'Possible', label: 'เป็นไปได้', color: 'bg-yellow-100 text-yellow-800' };
     return { level: 'Unlikely', label: 'เป็นไปได้น้อย', color: 'bg-gray-100 text-gray-800' };
   };
+
+  if (authLoading) return <div className="flex items-center justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
 
   if (submitted) {
     return (

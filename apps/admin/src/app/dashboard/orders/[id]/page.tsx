@@ -343,6 +343,40 @@ export default function OrderDetailPage() {
             </div>
           )}
 
+          {/* Verify Slip / Refund */}
+          {(order.status === 'awaiting_payment' || order.status === 'paid') && (
+            <div className="rounded-xl border bg-card p-5 shadow-sm">
+              <h3 className="mb-3 text-sm font-semibold">ตรวจสอบ / คืนเงิน</h3>
+              <div className="space-y-2">
+                {order.status === 'awaiting_payment' && (
+                  <>
+                    <button
+                      onClick={async () => { setSubmitting(true); try { await api.post(`/v1/staff/orders/${orderId}/verify-slip`, { approved: true, notes: 'ตรวจสอบแล้ว' }); await mutate(); } catch (e: any) { alert(e.message); } finally { setSubmitting(false); } }}
+                      disabled={submitting}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                    >
+                      <CheckCircle className="h-4 w-4" /> อนุมัติสลิป
+                    </button>
+                    <button
+                      onClick={async () => { setSubmitting(true); try { await api.post(`/v1/staff/orders/${orderId}/verify-slip`, { approved: false, notes: 'สลิปไม่ถูกต้อง' }); await mutate(); } catch (e: any) { alert(e.message); } finally { setSubmitting(false); } }}
+                      disabled={submitting}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      <XCircle className="h-4 w-4" /> ปฏิเสธสลิป
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={async () => { const reason = prompt('เหตุผลในการคืนเงิน:'); if (!reason) return; setSubmitting(true); try { await api.post(`/v1/staff/orders/${orderId}/refund`, { reason }); await mutate(); } catch (e: any) { alert(e.message); } finally { setSubmitting(false); } }}
+                  disabled={submitting}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium text-amber-600 hover:bg-amber-50 disabled:opacity-50"
+                >
+                  คืนเงิน
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Timeline */}
           <div className="rounded-xl border bg-card p-5 shadow-sm">
             <h3 className="mb-3 text-sm font-semibold">Timeline</h3>

@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft, Shield, Eye, Database, Bell, Trash2, Download, ChevronDown, ChevronUp, FileText, History } from 'lucide-react';
+import { ArrowLeft, Shield, Eye, Database, Bell, Trash2, Download, ChevronDown, ChevronUp, FileText, History, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { useAuthGuard } from '@/lib/use-auth-guard';
 
 const sections = [
   {
@@ -58,10 +59,13 @@ const consentItems = [
 ];
 
 export default function PdpaPage() {
+  const { loading: authLoading } = useAuthGuard();
   const [expanded, setExpanded] = useState<string | null>('collect');
   const [consents, setConsents] = useState<Record<string, boolean>>(
     Object.fromEntries(consentItems.map((c) => [c.id, c.defaultChecked]))
   );
+
+  if (authLoading) return <div className="flex items-center justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
 
   return (
     <div className="pb-8">

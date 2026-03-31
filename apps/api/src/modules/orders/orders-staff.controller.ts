@@ -70,6 +70,29 @@ export class OrdersStaffController {
   markDelivered(@Param('id', ParseUUIDPipe) id: string) {
     return this.ordersService.markDelivered(id);
   }
+
+  @Get('pending-slip')
+  getPendingSlips() {
+    return this.ordersService.getPendingSlipOrders();
+  }
+
+  @Post(':id/verify-slip')
+  verifySlip(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: any,
+    @Body() body: { approved: boolean; notes?: string },
+  ) {
+    return this.ordersService.verifySlip(id, body.approved, body.notes ?? '', user.id);
+  }
+
+  @Post(':id/refund')
+  refundOrder(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: any,
+    @Body() body: { reason: string; amount?: number },
+  ) {
+    return this.ordersService.refundOrder(id, body.reason, user.id, body.amount);
+  }
 }
 
 @Controller('webhooks/shipping')

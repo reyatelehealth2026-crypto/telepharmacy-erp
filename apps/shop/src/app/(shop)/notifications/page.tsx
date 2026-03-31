@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Bell, Package, Pill, Megaphone, MessageCircle, Loader2, CheckCheck } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
+import { useAuthGuard } from '@/lib/use-auth-guard';
 import { Button } from '@/components/ui/button';
 import {
   getMyNotifications,
@@ -31,13 +32,14 @@ function getNotifStyle(type: string) {
 }
 
 export default function NotificationsPage() {
+  const { loading: authLoading, token } = useAuthGuard();
   const { accessToken } = useAuthStore();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!accessToken) { setLoading(false); return; }
+    if (!accessToken) return;
     getMyNotifications(accessToken)
       .then((res) => {
         setNotifications(res.data ?? []);
@@ -72,6 +74,8 @@ export default function NotificationsPage() {
       // silent
     }
   };
+
+  if (authLoading) return <div className="flex items-center justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
 
   return (
     <div>

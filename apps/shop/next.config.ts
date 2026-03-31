@@ -10,6 +10,12 @@ const nextConfig: NextConfig = {
         hostname: 'manager.cnypharmacy.com',
         pathname: '/uploads/product_photo/**',
       },
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+        port: '9000',
+        pathname: '/telepharmacy/**',
+      },
     ],
   },
 };

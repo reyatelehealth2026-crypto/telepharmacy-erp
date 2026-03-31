@@ -6,7 +6,9 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/store/auth';
+import { useAuthGuard } from '@/lib/use-auth-guard';
 import { getMyAllergies, createAllergy, deleteAllergy } from '@/lib/patient';
+import { toast } from 'sonner';
 import type { Allergy } from '@/lib/patient';
 
 const severityConfig: Record<string, { label: string; variant: 'destructive' | 'warning' | 'secondary' }> = {
@@ -23,6 +25,7 @@ const sourceLabel: Record<string, string> = {
 };
 
 export default function AllergiesPage() {
+  const { loading: authLoading, token } = useAuthGuard();
   const { accessToken } = useAuthStore();
   const [allergies, setAllergies] = useState<Allergy[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,7 +41,7 @@ export default function AllergiesPage() {
   });
 
   useEffect(() => {
-    if (!accessToken) { setLoading(false); return; }
+    if (!accessToken) return;
     getMyAllergies(accessToken)
       .then(setAllergies)
       .catch(() => {})
@@ -61,7 +64,7 @@ export default function AllergiesPage() {
       setShowForm(false);
       setForm({ drugName: '', allergyGroup: '', severity: 'mild', symptoms: '', source: 'patient_reported', notes: '' });
     } catch {
-      alert('เพิ่มข้อมูลไม่สำเร็จ');
+      toast.error('เพิ่มข้อมูลไม่สำเร็จ');
     } finally {
       setSaving(false);
     }
@@ -74,9 +77,11 @@ export default function AllergiesPage() {
       await deleteAllergy(accessToken, id);
       setAllergies((prev) => prev.filter((a) => a.id !== id));
     } catch {
-      alert('ลบไม่สำเร็จ');
+      toast.error('ลบไม่สำเร็จ');
     }
   };
+
+  if (authLoading) return <div className="flex items-center justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
 
   return (
     <div className="pb-8">

@@ -17,11 +17,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuthStore } from '@/store/auth';
+import { useAuthGuard } from '@/lib/use-auth-guard';
 import { getMyProfile, updateProfile, type PatientProfile } from '@/lib/patient';
 import { toast } from 'sonner';
 
 export default function EditProfilePage() {
   const router = useRouter();
+  const { loading: authLoading, token } = useAuthGuard();
   const { accessToken, patient } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -38,12 +40,9 @@ export default function EditProfilePage() {
   });
 
   useEffect(() => {
-    if (!accessToken) {
-      router.replace('/login');
-      return;
-    }
+    if (!accessToken) return;
     fetchProfile();
-  }, [accessToken, router]);
+  }, [accessToken]);
 
   const fetchProfile = async () => {
     try {
@@ -92,6 +91,8 @@ export default function EditProfilePage() {
   const updateField = (field: string, value: string) => {
     setForm((f) => ({ ...f, [field]: value }));
   };
+
+  if (authLoading) return <div className="flex items-center justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
 
   if (loading) {
     return (

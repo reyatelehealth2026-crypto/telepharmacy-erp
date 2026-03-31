@@ -34,8 +34,13 @@ import {
 } from './dto';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
 import { ConfigService } from '@nestjs/config';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
 @Controller('v1/telemedicine/kyc')
+@UseGuards(JwtAuthGuard)
 export class KycController {
   private readonly encryptionKey: string;
 
@@ -402,14 +407,14 @@ export class KycController {
    * Manual review (pharmacist/admin only)
    */
   @Post(':verificationId/review')
+  @UseGuards(RolesGuard)
+  @Roles('pharmacist', 'super_admin')
   async manualReview(
     @Param('verificationId') verificationId: string,
     @Body(new ZodValidationPipe(manualReviewSchema)) dto: ManualReviewDto,
-    // TODO: Add @CurrentUser() decorator to get reviewer ID
+    @CurrentUser() user: any,
   ) {
-    // TODO: Check if user has pharmacist or admin role
-
-    const reviewerId = 'reviewer-id'; // Mock - get from JWT token
+    const reviewerId = user.id;
 
     await this.kycService.manualReview(
       verificationId,

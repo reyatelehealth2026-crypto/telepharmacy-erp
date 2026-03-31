@@ -21,6 +21,7 @@ import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/auth';
+import { useAuthGuard } from '@/lib/use-auth-guard';
 import { getMyProfile, getMyAllergies, getMyDiseases, getMyMedications } from '@/lib/patient';
 import type { PatientProfile } from '@/lib/patient';
 
@@ -32,13 +33,14 @@ const TIER_EMOJI: Record<string, string> = {
 };
 
 export default function ProfilePage() {
+  const { loading: authLoading } = useAuthGuard();
   const { accessToken, patient, clearAuth } = useAuthStore();
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [counts, setCounts] = useState({ allergies: 0, medications: 0, diseases: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!accessToken) { setLoading(false); return; }
+    if (!accessToken) return;
 
     Promise.allSettled([
       getMyProfile(accessToken),
@@ -100,6 +102,8 @@ export default function ProfilePage() {
     { href: '/notifications', icon: Bell, label: 'ประวัติการแจ้งเตือน', color: 'text-indigo-500' },
     { href: '/profile/pdpa', icon: Shield, label: 'ความเป็นส่วนตัว (PDPA)', color: 'text-gray-500' },
   ];
+
+  if (authLoading) return <div className="flex items-center justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
 
   return (
     <div className="pb-4">

@@ -11,4 +11,4 @@ import { AuditController } from './audit.controller';
   providers: [TelemedicineAuditService, AuditReportService],
   exports: [TelemedicineAuditService],
 })
-export class AuditModule {}
+export class TelemedicineAuditModule {}

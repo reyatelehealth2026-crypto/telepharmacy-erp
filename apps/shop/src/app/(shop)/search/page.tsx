@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { ProductCard } from '@/components/product/product-card';
 import { getProducts } from '@/lib/products';
 import type { Product } from '@/lib/products';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 const popularSearches = ['พาราเซตามอล', 'วิตามินซี', 'ยาแก้ไอ', 'ครีมกันแดด', 'ยาแก้แพ้'];
 
@@ -29,11 +29,14 @@ const sortOptions = [
 
 function SearchPageInner() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [query, setQuery] = useState(searchParams.get('q') ?? '');
   const [activeFilter, setActiveFilter] = useState<string | null>(
     searchParams.get('category') ?? null,
   );
-  const [sortIdx, setSortIdx] = useState(0);
+  const [sortIdx, setSortIdx] = useState(
+    Number(searchParams.get('sort') ?? '0'),
+  );
   const [products, setProducts] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -76,6 +79,16 @@ function SearchPageInner() {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, activeFilter, sortIdx]);
+
+  // Sync search state to URL
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (query) params.set('q', query);
+    if (activeFilter) params.set('category', activeFilter);
+    if (sortIdx > 0) params.set('sort', String(sortIdx));
+    const qs = params.toString();
+    router.replace(qs ? `/search?${qs}` : '/search', { scroll: false });
+  }, [query, activeFilter, sortIdx, router]);
 
   return (
     <div className="space-y-4">

@@ -22,11 +22,13 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/store/auth';
+import { useAuthGuard } from '@/lib/use-auth-guard';
 import { uploadPrescription, type Prescription, getRxStatusConfig } from '@/lib/prescriptions';
 import { toast } from 'sonner';
 
 export default function RxUploadPage() {
   const router = useRouter();
+  const { loading: authLoading } = useAuthGuard();
   const { accessToken } = useAuthStore();
 
   const [files, setFiles] = useState<File[]>([]);
@@ -50,10 +52,6 @@ export default function RxUploadPage() {
   };
 
   const handleSubmit = async () => {
-    if (!accessToken) {
-      toast.error('กรุณาเข้าสู่ระบบก่อน');
-      return;
-    }
     if (files.length === 0) {
       setError('กรุณาเลือกรูปใบสั่งยาอย่างน้อย 1 รูป');
       return;
@@ -94,6 +92,8 @@ export default function RxUploadPage() {
   };
 
   // Success state with progress
+  if (authLoading) return <div className="flex items-center justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
+
   if (submittedRx) {
     const statusConfig = getRxStatusConfig(submittedRx.status);
     return (

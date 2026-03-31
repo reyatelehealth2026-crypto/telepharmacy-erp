@@ -1,3 +1,5 @@
+import { useAuthStore } from '@/store/auth';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 type RequestOptions = {
@@ -6,6 +8,38 @@ type RequestOptions = {
   headers?: Record<string, string>;
   token?: string;
 };
+
+let refreshPromise: Promise<void> | null = null;
+
+async function doRefresh(): Promise<void> {
+  const { refreshToken, setAuth, clearAuth } = useAuthStore.getState();
+
+  if (!refreshToken) {
+    clearAuth();
+    window.location.href = '/login';
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/v1/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (!res.ok) throw new Error('Refresh failed');
+
+    const data = await res.json();
+    setAuth({
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
+      patient: useAuthStore.getState().patient,
+    });
+  } catch {
+    clearAuth();
+    window.location.href = '/login';
+  }
+}
 
 async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, headers = {}, token } = opts;
@@ -19,6 +53,20 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
+
+  if (res.status === 401 && token) {
+    if (!refreshPromise) {
+      refreshPromise = doRefresh().finally(() => {
+        refreshPromise = null;
+      });
+    }
+    await refreshPromise;
+
+    const newToken = useAuthStore.getState().accessToken;
+    if (!newToken) throw new Error('Authentication failed');
+
+    return request<T>(path, { ...opts, token: newToken });
+  }
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({ message: 'Request failed' }));

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -13,6 +14,9 @@ import {
   Phone,
   MapPin,
   Calendar,
+  Bell,
+  Star,
+  Send,
 } from 'lucide-react';
 import { useApi } from '@/lib/use-api';
 import { cn } from '@/lib/utils';
@@ -307,7 +311,7 @@ export default function PatientDetailPage() {
           </div>
         </div>
 
-        {/* Column 3: Prescription History */}
+        {/* Column 3: Prescription History + Adherence + Loyalty */}
         <div className="space-y-4">
           <div className="rounded-xl border bg-card p-5 shadow-sm">
             <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold">
@@ -345,8 +349,77 @@ export default function PatientDetailPage() {
               <p className="text-sm text-muted-foreground">ยังไม่มีใบสั่งยา</p>
             )}
           </div>
+
+          {/* Adherence Stats */}
+          <AdherenceCard patientId={patientId} />
+
+          {/* Loyalty */}
+          <LoyaltyCard patientId={patientId} />
         </div>
       </div>
+    </div>
+  );
+}
+
+function AdherenceCard({ patientId }: { patientId: string }) {
+  const { data: stats } = useApi<{ totalReminders: number; activeReminders: number; adherenceRate: number; takenCount: number; missedCount: number; streak: number }>(`/v1/staff/adherence/stats/${patientId}`);
+  const { data: reminders } = useApi<{ id: string; drugName: string; isActive: boolean; times: string[] }[]>(`/v1/staff/adherence/reminders?patientId=${patientId}&limit=10`);
+
+  return (
+    <div className="rounded-xl border bg-card p-5 shadow-sm">
+      <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold"><Bell className="h-4 w-4" /> Adherence</h3>
+      {stats && (
+        <div className="mb-3 grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-lg bg-muted/50 p-2"><p className="text-lg font-bold">{Math.round(stats.adherenceRate)}%</p><p className="text-xs text-muted-foreground">อัตราทานยา</p></div>
+          <div className="rounded-lg bg-muted/50 p-2"><p className="text-lg font-bold">{stats.streak}</p><p className="text-xs text-muted-foreground">Streak</p></div>
+          <div className="rounded-lg bg-muted/50 p-2"><p className="text-lg font-bold">{stats.activeReminders}</p><p className="text-xs text-muted-foreground">Active</p></div>
+        </div>
+      )}
+      {reminders && Array.isArray(reminders) && reminders.length > 0 && (
+        <div className="space-y-1">
+          {reminders.slice(0, 5).map(r => (
+            <div key={r.id} className="flex items-center justify-between rounded-lg border p-2 text-xs">
+              <span className="font-medium">{r.drugName}</span>
+              <span className={cn('rounded-full px-2 py-0.5', r.isActive ? 'bg-green-100 text-green-700' : 'bg-muted text-muted-foreground')}>{r.isActive ? 'Active' : 'Off'}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LoyaltyCard({ patientId }: { patientId: string }) {
+  const { data: loyalty } = useApi<{ points: number; tier: string; lifetimePoints: number }>(`/v1/staff/loyalty/${patientId}`);
+  const [adjusting, setAdjusting] = useState(false);
+
+  async function handleAdjust() {
+    const input = prompt('จำนวนแต้ม (+ เพิ่ม, - ลด):');
+    if (!input) return;
+    const reason = prompt('เหตุผล:');
+    if (!reason) return;
+    setAdjusting(true);
+    try {
+      const { api } = await import('@/lib/api-client');
+      await api.post(`/v1/staff/loyalty/${patientId}/adjust`, { points: parseInt(input), reason });
+      window.location.reload();
+    } catch (e: any) { alert(e.message); }
+    finally { setAdjusting(false); }
+  }
+
+  return (
+    <div className="rounded-xl border bg-card p-5 shadow-sm">
+      <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold"><Star className="h-4 w-4" /> Loyalty</h3>
+      {loyalty && (
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm"><span className="text-muted-foreground">แต้มปัจจุบัน</span><span className="font-bold">{loyalty.points?.toLocaleString() ?? 0}</span></div>
+          <div className="flex justify-between text-sm"><span className="text-muted-foreground">Tier</span><span className="font-medium capitalize">{loyalty.tier ?? '-'}</span></div>
+          <div className="flex justify-between text-sm"><span className="text-muted-foreground">แต้มสะสมตลอด</span><span>{loyalty.lifetimePoints?.toLocaleString() ?? 0}</span></div>
+          <button onClick={handleAdjust} disabled={adjusting} className="mt-2 w-full rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-50">
+            ปรับแต้ม
+          </button>
+        </div>
+      )}
     </div>
   );
 }

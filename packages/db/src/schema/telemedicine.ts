@@ -517,3 +517,417 @@ export const pharmacistLicenseVerifications = pgTable(
     index("pharmacist_license_verifications_expiry_date_idx").on(t.expiryDate),
   ],
 );
+
+// ============================================================================
+// ส.พ. 16 COMPLIANCE DOCUMENTATION
+// ============================================================================
+
+export const authorizationStatusEnum = pgEnum("authorization_status", [
+  "not_applied",
+  "application_pending",
+  "approved",
+  "expired",
+  "suspended",
+  "renewal_pending",
+]);
+
+export const equipmentStatusEnum = pgEnum("equipment_status", [
+  "active",
+  "maintenance",
+  "retired",
+  "backup",
+]);
+
+export const complianceFacilities = pgTable("compliance_facilities", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  facilityName: varchar("facility_name", { length: 255 }).notNull(),
+  facilityType: varchar("facility_type", { length: 50 }).notNull(), // clinic, pharmacy, hospital
+
+  // Physical location
+  address: text("address").notNull(),
+  province: varchar("province", { length: 100 }).notNull(),
+  district: varchar("district", { length: 100 }).notNull(),
+  subdistrict: varchar("subdistrict", { length: 100 }),
+  postalCode: varchar("postal_code", { length: 10 }),
+
+  // Consultation space details
+  consultationRoomPhotos: jsonb("consultation_room_photos"), // Array of photo URLs
+  roomDimensions: jsonb("room_dimensions"), // {length, width, height} in meters
+  privacyMeasures: text("privacy_measures"), // Description of privacy setup
+  lightingDescription: text("lighting_description"),
+  soundproofingDescription: text("soundproofing_description"),
+
+  // Contact information
+  phoneNumber: varchar("phone_number", { length: 20 }),
+  email: varchar("email", { length: 255 }),
+  emergencyContact: varchar("emergency_contact", { length: 20 }),
+
+  // Operating hours
+  operatingHours: jsonb("operating_hours"), // {monday: "09:00-17:00", ...}
+  telemedicineHours: jsonb("telemedicine_hours"),
+
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const complianceEquipment = pgTable(
+  "compliance_equipment",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    facilityId: uuid("facility_id")
+      .notNull()
+      .references(() => complianceFacilities.id),
+
+    // Equipment details
+    equipmentType: varchar("equipment_type", { length: 50 }).notNull(), // camera, microphone, monitor, computer, backup_power
+    brand: varchar("brand", { length: 100 }),
+    model: varchar("model", { length: 100 }),
+    serialNumber: varchar("serial_number", { length: 100 }),
+
+    // Specifications
+    specifications: jsonb("specifications"), // Technical specs (resolution, bitrate, etc.)
+    purchaseDate: timestamp("purchase_date", { withTimezone: true }),
+    warrantyExpiry: timestamp("warranty_expiry", { withTimezone: true }),
+
+    // Status and maintenance
+    status: equipmentStatusEnum("status").default("active").notNull(),
+    lastMaintenanceDate: timestamp("last_maintenance_date", {
+      withTimezone: true,
+    }),
+    nextMaintenanceDate: timestamp("next_maintenance_date", {
+      withTimezone: true,
+    }),
+    maintenanceNotes: text("maintenance_notes"),
+
+    // Documentation
+    photoUrl: text("photo_url"),
+    invoiceUrl: text("invoice_url"),
+    manualUrl: text("manual_url"),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("compliance_equipment_facility_id_idx").on(t.facilityId),
+    index("compliance_equipment_status_idx").on(t.status),
+  ],
+);
+
+export const complianceStaffQualifications = pgTable(
+  "compliance_staff_qualifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    staffId: uuid("staff_id")
+      .notNull()
+      .references(() => staff.id),
+    facilityId: uuid("facility_id")
+      .notNull()
+      .references(() => complianceFacilities.id),
+
+    // Professional qualifications
+    licenseNumber: varchar("license_number", { length: 50 }).notNull(),
+    licenseType: varchar("license_type", { length: 50 }).notNull(), // pharmacist, pharmacist_tech
+    licenseIssueDate: timestamp("license_issue_date", { withTimezone: true }),
+    licenseExpiryDate: timestamp("license_expiry_date", {
+      withTimezone: true,
+    }).notNull(),
+
+    // Education
+    degree: varchar("degree", { length: 100 }), // Bachelor, Master, PhD
+    university: varchar("university", { length: 255 }),
+    graduationYear: integer("graduation_year"),
+
+    // Specializations
+    specializations: jsonb("specializations"), // Array of specialization areas
+    certifications: jsonb("certifications"), // Array of additional certifications
+
+    // Telemedicine training
+    telemedicineTrainingCompleted: boolean("telemedicine_training_completed")
+      .default(false)
+      .notNull(),
+    trainingDate: timestamp("training_date", { withTimezone: true }),
+    trainingCertificateUrl: text("training_certificate_url"),
+
+    // Work schedule
+    workSchedule: jsonb("work_schedule"), // Weekly schedule
+    telemedicineShifts: jsonb("telemedicine_shifts"),
+
+    // Documentation
+    cvUrl: text("cv_url"),
+    licenseDocumentUrl: text("license_document_url"),
+    degreeDocumentUrl: text("degree_document_url"),
+
+    isActive: boolean("is_active").default(true).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("compliance_staff_qualifications_staff_id_idx").on(t.staffId),
+    index("compliance_staff_qualifications_facility_id_idx").on(t.facilityId),
+  ],
+);
+
+export const sp16Authorizations = pgTable(
+  "sp16_authorizations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    facilityId: uuid("facility_id")
+      .notNull()
+      .references(() => complianceFacilities.id),
+
+    // Authorization details
+    authorizationNumber: varchar("authorization_number", {
+      length: 100,
+    }).unique(),
+    status: authorizationStatusEnum("status")
+      .default("not_applied")
+      .notNull(),
+
+    // Application tracking
+    applicationDate: timestamp("application_date", { withTimezone: true }),
+    applicationDocumentUrl: text("application_document_url"),
+    submittedBy: uuid("submitted_by").references(() => staff.id),
+
+    // Approval details
+    approvalDate: timestamp("approval_date", { withTimezone: true }),
+    approvalDocumentUrl: text("approval_document_url"), // ส.พ. 16 approval letter
+    approvedBy: varchar("approved_by", { length: 255 }), // สบส. officer name
+    approvalNotes: text("approval_notes"),
+
+    // Validity period
+    effectiveDate: timestamp("effective_date", { withTimezone: true }),
+    expiryDate: timestamp("expiry_date", { withTimezone: true }),
+
+    // Renewal tracking
+    renewalReminderSentAt: timestamp("renewal_reminder_sent_at", {
+      withTimezone: true,
+    }),
+    renewalApplicationDate: timestamp("renewal_application_date", {
+      withTimezone: true,
+    }),
+
+    // Suspension/revocation
+    suspendedAt: timestamp("suspended_at", { withTimezone: true }),
+    suspensionReason: text("suspension_reason"),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    revocationReason: text("revocation_reason"),
+
+    // Correspondence
+    correspondenceLog: jsonb("correspondence_log"), // Array of communications with สบส.
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("sp16_authorizations_facility_id_idx").on(t.facilityId),
+    index("sp16_authorizations_status_idx").on(t.status),
+    index("sp16_authorizations_expiry_date_idx").on(t.expiryDate),
+  ],
+);
+
+export const complianceSystemChanges = pgTable(
+  "compliance_system_changes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    facilityId: uuid("facility_id")
+      .notNull()
+      .references(() => complianceFacilities.id),
+
+    // Change details
+    changeType: varchar("change_type", { length: 50 }).notNull(), // equipment, software, procedure, staff, facility
+    changeCategory: varchar("change_category", { length: 50 }).notNull(), // major, minor
+    changeDescription: text("change_description").notNull(),
+
+    // Impact assessment
+    requiresSp16Amendment: boolean("requires_sp16_amendment")
+      .default(false)
+      .notNull(),
+    impactAssessment: text("impact_assessment"),
+    riskLevel: varchar("risk_level", { length: 20 }), // low, medium, high
+
+    // Implementation
+    plannedDate: timestamp("planned_date", { withTimezone: true }),
+    implementedDate: timestamp("implemented_date", { withTimezone: true }),
+    implementedBy: uuid("implemented_by").references(() => staff.id),
+
+    // Documentation
+    changeDocumentUrl: text("change_document_url"),
+    approvalDocumentUrl: text("approval_document_url"),
+    testingResultsUrl: text("testing_results_url"),
+
+    // Notification to สบส.
+    notificationRequired: boolean("notification_required")
+      .default(false)
+      .notNull(),
+    notifiedAt: timestamp("notified_at", { withTimezone: true }),
+    notificationDocumentUrl: text("notification_document_url"),
+    acknowledgmentReceived: boolean("acknowledgment_received").default(false),
+    acknowledgmentDate: timestamp("acknowledgment_date", {
+      withTimezone: true,
+    }),
+
+    // Audit trail
+    reviewedBy: uuid("reviewed_by").references(() => staff.id),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    reviewNotes: text("review_notes"),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("compliance_system_changes_facility_id_idx").on(t.facilityId),
+    index("compliance_system_changes_change_type_idx").on(t.changeType),
+    index("compliance_system_changes_implemented_date_idx").on(
+      t.implementedDate,
+    ),
+  ],
+);
+
+export const complianceTechnicalSpecs = pgTable("compliance_technical_specs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  facilityId: uuid("facility_id")
+    .notNull()
+    .references(() => complianceFacilities.id),
+
+  // Video platform specifications
+  platformName: varchar("platform_name", { length: 100 }).notNull(), // Agora.io
+  platformVersion: varchar("platform_version", { length: 50 }),
+  encryptionProtocol: varchar("encryption_protocol", { length: 50 }), // TLS 1.3, AES-256
+  videoResolution: varchar("video_resolution", { length: 20 }), // 720p, 1080p
+  videoFrameRate: integer("video_frame_rate"), // 30fps
+  audioBitrate: integer("audio_bitrate"), // kbps
+  videoBitrate: integer("video_bitrate"), // kbps
+
+  // Recording capabilities
+  recordingEnabled: boolean("recording_enabled").default(true).notNull(),
+  recordingFormat: varchar("recording_format", { length: 20 }), // MP4, WebM
+  recordingStorage: varchar("recording_storage", { length: 100 }), // MinIO Thailand
+  recordingRetentionYears: integer("recording_retention_years").default(10),
+
+  // Security measures
+  dataEncryptionAtRest: varchar("data_encryption_at_rest", { length: 50 }), // AES-256
+  dataEncryptionInTransit: varchar("data_encryption_in_transit", {
+    length: 50,
+  }), // TLS 1.3
+  accessControlMethod: varchar("access_control_method", { length: 100 }), // JWT, MFA
+  backupFrequency: varchar("backup_frequency", { length: 50 }), // daily, hourly
+  backupLocation: varchar("backup_location", { length: 255 }), // Geographic location
+
+  // Network requirements
+  minimumBandwidthKbps: integer("minimum_bandwidth_kbps").default(500),
+  recommendedBandwidthKbps: integer("recommended_bandwidth_kbps").default(
+    2000,
+  ),
+  internetProvider: varchar("internet_provider", { length: 100 }),
+  backupInternetProvider: varchar("backup_internet_provider", { length: 100 }),
+
+  // Data residency
+  dataCenter: varchar("data_center", { length: 255 }).notNull(), // Must be in Thailand
+  dataCenterLocation: varchar("data_center_location", { length: 255 }), // Bangkok, Thailand
+  dataResidencyCompliant: boolean("data_residency_compliant")
+    .default(true)
+    .notNull(),
+
+  // Documentation
+  technicalDocumentUrl: text("technical_document_url"),
+  securityAuditUrl: text("security_audit_url"),
+  complianceCertificateUrl: text("compliance_certificate_url"),
+
+  // Monitoring
+  uptimePercentage: decimal("uptime_percentage", { precision: 5, scale: 2 }), // 99.99%
+  lastUptimeCheck: timestamp("last_uptime_check", { withTimezone: true }),
+
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const complianceReports = pgTable(
+  "compliance_reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    facilityId: uuid("facility_id")
+      .notNull()
+      .references(() => complianceFacilities.id),
+
+    // Report details
+    reportType: varchar("report_type", { length: 50 }).notNull(), // quarterly, annual, self_assessment, incident
+    reportPeriodStart: timestamp("report_period_start", {
+      withTimezone: true,
+    }).notNull(),
+    reportPeriodEnd: timestamp("report_period_end", {
+      withTimezone: true,
+    }).notNull(),
+
+    // Report content
+    reportData: jsonb("report_data").notNull(), // Structured report data
+    summary: text("summary"),
+    findings: jsonb("findings"), // Array of findings/issues
+    recommendations: jsonb("recommendations"),
+
+    // Metrics
+    totalConsultations: integer("total_consultations"),
+    totalReferrals: integer("total_referrals"),
+    referralRate: decimal("referral_rate", { precision: 5, scale: 2 }), // Percentage
+    averageConsultationDuration: integer("average_consultation_duration"), // Seconds
+    kycSuccessRate: decimal("kyc_success_rate", { precision: 5, scale: 2 }),
+    consentAcceptanceRate: decimal("consent_acceptance_rate", {
+      precision: 5,
+      scale: 2,
+    }),
+    systemUptimePercentage: decimal("system_uptime_percentage", {
+      precision: 5,
+      scale: 2,
+    }),
+
+    // Generation and submission
+    generatedAt: timestamp("generated_at", { withTimezone: true }).notNull(),
+    generatedBy: uuid("generated_by").references(() => staff.id),
+    reportFileUrl: text("report_file_url"), // PDF report
+
+    // Submission to สบส.
+    submittedToAuthority: boolean("submitted_to_authority").default(false),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    submissionMethod: varchar("submission_method", { length: 50 }), // email, portal, mail
+    acknowledgmentReceived: boolean("acknowledgment_received").default(false),
+    acknowledgmentDate: timestamp("acknowledgment_date", {
+      withTimezone: true,
+    }),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("compliance_reports_facility_id_idx").on(t.facilityId),
+    index("compliance_reports_report_type_idx").on(t.reportType),
+    index("compliance_reports_report_period_idx").on(
+      t.reportPeriodStart,
+      t.reportPeriodEnd,
+    ),
+  ],
+);

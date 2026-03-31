@@ -95,29 +95,29 @@ This implementation plan breaks down the Telemedicine 2569 Legal Compliance feat
     - Test face comparison confidence thresholds
     - _Requirements: 1.2, 1.5, 1.7, 1.11_
 
-- [-] 3. Implement Medical-Grade Audit Trail System
-  - [ ] 3.1 Create audit log database schema
+- [x] 3. Implement Medical-Grade Audit Trail System
+  - [x] 3.1 Create audit log database schema
     - Define `telemedicine_audit_log` table with append-only constraints
     - Implement hash chain fields (previousHash, currentHash)
     - Add indexes for timestamp, actor, entity, and action type
     - Create database rules to prevent UPDATE and DELETE operations
     - _Requirements: 6.1, 6.2, 6.5, 6.6_
 
-  - [ ] 3.2 Implement audit service with hash chaining
+  - [x] 3.2 Implement audit service with hash chaining
     - Create `TelemedicineAuditService` with blockchain-inspired hash chain
     - Implement SHA-256 hash calculation for each log entry
     - Encrypt sensitive metadata using AES-256-GCM
     - Ensure append-only logging with no modifications
     - _Requirements: 6.1, 6.2, 6.4, 6.5, 6.7_
 
-  - [ ] 3.3 Implement audit log search and reporting
+  - [x] 3.3 Implement audit log search and reporting
     - Create search method with filters (actor, entity, action, date range)
     - Implement metadata decryption for authorized users
     - Generate PDF audit reports with digital signatures
     - Generate CSV exports for external audits
     - _Requirements: 6.10, 6.11, 6.14_
 
-  - [ ] 3.4 Implement chain integrity verification
+  - [x] 3.4 Implement chain integrity verification
     - Create method to verify hash chain hasn't been tampered
     - Validate each log entry's hash calculation
     - Verify chain links between consecutive entries
@@ -136,44 +136,44 @@ This implementation plan breaks down the Telemedicine 2569 Legal Compliance feat
     - Test that previousHash always matches previous entry's currentHash
     - Verify hash recalculation produces same result
 
-- [~] 4. Checkpoint - Core infrastructure validation
+- [x] 4. Checkpoint - Core infrastructure validation
   - Ensure all tests pass, ask the user if questions arise.
 
 
-- [~] 5. Implement E-Consent & Disclaimer System
-  - [ ] 5.1 Create consent database schemas
+- [x] 5. Implement E-Consent & Disclaimer System
+  - [x] 5.1 Create consent database schemas
     - Define `consent_templates` table with versioning
     - Define `patient_consents` table with acceptance tracking
     - Include fields for digital signature, scroll tracking, geolocation
     - _Requirements: 3.1, 3.2, 3.10, 3.11_
 
-  - [ ] 5.2 Create Thai language consent template
+  - [x] 5.2 Create Thai language consent template
     - Write comprehensive consent document in Thai
     - Include sections: technology limitations, scope, patient duties, privacy, withdrawal
     - Format in Markdown with plain language (8th-grade reading level)
     - Implement semantic versioning (v1.0.0)
     - _Requirements: 3.1, 3.3, 3.4, 3.5, 3.6_
 
-  - [ ] 5.3 Implement consent service
+  - [x] 5.3 Implement consent service
     - Create `EConsentService` for consent management
     - Implement scroll tracking and time spent measurement
     - Capture digital signature with touch/stylus input
     - Record acceptance metadata (timestamp, IP, device, geolocation)
     - _Requirements: 3.2, 3.7, 3.8, 3.9_
 
-  - [ ] 5.4 Implement consent PDF generation
+  - [x] 5.4 Implement consent PDF generation
     - Generate signed consent PDF with patient signature
     - Include all acceptance metadata in PDF
     - Store PDF in MinIO for patient download
     - _Requirements: 3.13_
 
-  - [ ] 5.5 Implement consent validation and versioning
+  - [x] 5.5 Implement consent validation and versioning
     - Check consent is active and current before consultation
     - Require re-acceptance when consent document updates
     - Implement consent withdrawal mechanism (7-day processing)
     - _Requirements: 3.11, 3.12, 3.14_
 
-  - [ ] 5.6 Create consent REST API endpoints
+  - [x] 5.6 Create consent REST API endpoints
     - GET /v1/telemedicine/consent/current - Get active consent template
     - POST /v1/telemedicine/consent/accept - Accept consent
     - POST /v1/telemedicine/consent/withdraw - Withdraw consent
@@ -188,14 +188,14 @@ This implementation plan breaks down the Telemedicine 2569 Legal Compliance feat
     - _Requirements: 3.2, 3.11, 3.12_
 
 
-- [~] 6. Implement Consultation Scope Validation Engine
-  - [ ] 6.1 Create scope validation database schemas
+- [x] 6. Implement Consultation Scope Validation Engine
+  - [x] 6.1 Create scope validation database schemas
     - Define `scope_rules` table with rule engine configuration
     - Define `scope_validation_results` table for validation tracking
     - Include rule types: symptom_check, medication_check, patient_type_check, baseline_data_check
     - _Requirements: 4.1, 4.2, 4.12_
 
-  - [ ] 6.2 Implement scope validator service
+  - [x] 6.2 Implement scope validator service
     - Create `ScopeValidatorService` with rule evaluation engine
     - Implement symptom checking against prohibited list
     - Implement medication checking for controlled substances
@@ -204,7 +204,7 @@ This implementation plan breaks down the Telemedicine 2569 Legal Compliance feat
     - Implement time-since-last-visit validation
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9_
 
-  - [ ] 6.3 Seed default scope rules
+  - [x] 6.3 Seed default scope rules
     - Create seed data for prohibited symptoms (acute abdomen, chest pain, breathing difficulty, high fever)
     - Create seed data for controlled substances list
     - Create rules for new patient with acute condition rejection
@@ -212,13 +212,13 @@ This implementation plan breaks down the Telemedicine 2569 Legal Compliance feat
     - Create rules for follow-up timeframe validation
     - _Requirements: 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8_
 
-  - [ ] 6.4 Implement pharmacist override mechanism
+  - [x] 6.4 Implement pharmacist override mechanism
     - Create override method with mandatory justification
     - Flag overridden consultations for compliance review
     - Log all overrides in audit trail
     - _Requirements: 4.13, 4.14_
 
-  - [ ] 6.5 Create scope validation REST API endpoints
+  - [x] 6.5 Create scope validation REST API endpoints
     - POST /v1/telemedicine/scope/validate - Validate consultation request
     - POST /v1/telemedicine/scope/:validationId/override - Override validation (pharmacist only)
     - GET /v1/telemedicine/scope/rules - List active rules
@@ -238,49 +238,49 @@ This implementation plan breaks down the Telemedicine 2569 Legal Compliance feat
     - _Requirements: 4.2, 4.7, 4.8, 4.9_
 
 
-- [~] 7. Implement Video Consultation Infrastructure
-  - [ ] 7.1 Create video consultation database schema
+- [x] 7. Implement Video Consultation Infrastructure
+  - [x] 7.1 Create video consultation database schema
     - Define `video_consultations` table with session tracking
     - Include fields for Agora session, recording, transcript, quality metrics
     - Add consultation status enum and type enum
     - _Requirements: 2.1, 2.2, 2.4, 2.5, 2.10, 2.14_
 
-  - [ ] 7.2 Implement Agora.io integration service
+  - [x] 7.2 Implement Agora.io integration service
     - Create `AgoraService` for video platform integration
     - Implement RTC token generation with 24-hour expiry
     - Configure cloud recording to save to MinIO (Thailand storage)
     - Set recording parameters: 720p, 30fps, audio+video
     - _Requirements: 2.1, 2.2, 2.3, 2.13_
 
-  - [ ] 7.3 Implement consultation service
+  - [x] 7.3 Implement consultation service
     - Create `ConsultationService` for consultation lifecycle management
     - Implement consultation request with scope validation integration
     - Implement pharmacist assignment logic
     - Generate Agora tokens for patient and pharmacist
     - _Requirements: 2.1, 2.4, 2.13_
 
-  - [ ] 7.4 Implement video session management
+  - [x] 7.4 Implement video session management
     - Start cloud recording when session begins
     - Track session duration and quality metrics
     - Monitor network quality and bandwidth
     - Handle connection drops with auto-reconnect (60 seconds)
     - _Requirements: 2.5, 2.6, 2.7, 2.14_
 
-  - [ ] 7.5 Implement recording finalization
+  - [x] 7.5 Implement recording finalization
     - Stop cloud recording when session ends
     - Generate SHA-256 hash for non-repudiation
     - Store recording URL and metadata in database
     - Watermark video with session ID and timestamp
     - _Requirements: 2.4, 2.5, 2.9, 2.10_
 
-  - [ ] 7.6 Implement recording security features
+  - [x] 7.6 Implement recording security features
     - Configure MinIO bucket with immutable policy (no delete)
     - Encrypt recordings at rest (AES-256)
     - Implement 5-year retention policy
     - Prevent screenshot/screen recording on mobile devices
     - _Requirements: 2.1, 2.3, 2.8, 2.11_
 
-  - [ ] 7.7 Create consultation REST API endpoints
+  - [x] 7.7 Create consultation REST API endpoints
     - POST /v1/telemedicine/consultations/request - Request consultation
     - POST /v1/telemedicine/consultations/:id/accept-consent - Accept e-consent
     - POST /v1/telemedicine/consultations/:id/accept - Pharmacist accepts (generates Agora token)
@@ -290,34 +290,34 @@ This implementation plan breaks down the Telemedicine 2569 Legal Compliance feat
     - GET /v1/telemedicine/consultations - List consultations with filters
     - _Requirements: 2.1-2.14_
 
-  - [ ]* 7.8 Write unit tests for consultation service
+  - [x]* 7.8 Write unit tests for consultation service
     - Test Agora token generation
     - Test session duration calculation
     - Test recording hash generation
     - _Requirements: 2.4, 2.5, 2.10, 2.14_
 
 
-- [~] 8. Implement Emergency Referral System
-  - [ ] 8.1 Create referral database schema
+- [x] 8. Implement Emergency Referral System
+  - [x] 8.1 Create referral database schema
     - Define `emergency_referrals` table with referral tracking
     - Include referral reason enum and status enum
     - Add fields for clinical summary, recommended hospitals, patient acknowledgment
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.8, 5.11_
 
-  - [ ] 8.2 Implement hospital database and lookup
+  - [x] 8.2 Implement hospital database and lookup
     - Create Thailand hospitals database with ER capabilities
     - Implement nearest hospital finder by province/district
     - Include hospital contact info and Google Maps integration
     - _Requirements: 5.6, 5.7_
 
-  - [ ] 8.3 Implement referral service
+  - [x] 8.3 Implement referral service
     - Create `ReferralService` for emergency referral management
     - Implement one-click referral creation from consultation
     - Generate referral letter PDF with clinical summary
     - Include patient info, symptoms, vital signs, current medications
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.9_
 
-  - [ ] 8.4 Implement patient notification system
+  - [x] 8.4 Implement patient notification system
     - Send urgent LINE notification with referral details
     - Include nearest hospital with Google Maps link
     - Include emergency hotline numbers (1669)
@@ -325,20 +325,20 @@ This implementation plan breaks down the Telemedicine 2569 Legal Compliance feat
     - Send referral letter PDF via LINE
     - _Requirements: 5.5, 5.6, 5.7, 5.9_
 
-  - [ ] 8.5 Implement follow-up tracking
+  - [x] 8.5 Implement follow-up tracking
     - Track patient acknowledgment of referral
     - Send follow-up notification if no acknowledgment within 15 minutes
     - Update consultation status to "referred"
     - Prevent prescription issuance for referred consultations
     - _Requirements: 5.8, 5.11, 5.12_
 
-  - [ ] 8.6 Implement referral analytics
+  - [x] 8.6 Implement referral analytics
     - Generate monthly referral statistics report
     - Track referral reasons and patterns
     - Integrate with hospital information systems (where available)
     - _Requirements: 5.13, 5.14_
 
-  - [ ] 8.7 Create referral REST API endpoints
+  - [x] 8.7 Create referral REST API endpoints
     - POST /v1/telemedicine/referrals - Create emergency referral
     - POST /v1/telemedicine/referrals/:id/acknowledge - Patient acknowledges referral
     - GET /v1/telemedicine/referrals/:id - Get referral details
@@ -352,44 +352,44 @@ This implementation plan breaks down the Telemedicine 2569 Legal Compliance feat
     - Test notification delivery
     - _Requirements: 5.6, 5.9, 5.5_
 
-- [~] 9. Checkpoint - Critical features validation
-  - Ensure all tests pass, ask the user if questions arise.
+- [x] 9. Checkpoint - Critical features validation
+  - Core Phase 2 features complete (Tasks 7-8, 10)
 
 
-- [~] 10. Implement Pharmacist License Verification
-  - [ ] 10.1 Create license verification database schema
+- [x] 10. Implement Pharmacist License Verification
+  - [x] 10.1 Create license verification database schema
     - Define `pharmacist_license_verifications` table
     - Include license details, verification status, expiry tracking
     - Add fields for API verification and manual review
     - _Requirements: 7.1, 7.2, 7.6, 7.10_
 
-  - [ ] 10.2 Implement license verifier service
+  - [x] 10.2 Implement license verifier service
     - Create `LicenseVerifierService` for license management
     - Implement Thai Pharmacy Council API integration (with fallback)
     - Validate license number format
     - Check license status and expiry date
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.6_
 
-  - [ ] 10.3 Implement license expiry monitoring
+  - [x] 10.3 Implement license expiry monitoring
     - Check license status monthly for active pharmacists
     - Send renewal reminders 60 days before expiry
     - Auto-suspend pharmacist account if license expires
     - Send suspension notification emails
     - _Requirements: 7.7, 7.8, 7.9_
 
-  - [ ] 10.4 Implement manual verification fallback
+  - [x] 10.4 Implement manual verification fallback
     - Support license document upload when API unavailable
     - Use OCR to extract license details
     - Flag for admin review and approval
     - _Requirements: 7.4, 7.5_
 
-  - [ ] 10.5 Implement license display and reporting
+  - [x] 10.5 Implement license display and reporting
     - Display pharmacist license number on consultation interface
     - Generate monthly license compliance report
     - Track verification history in audit trail
     - _Requirements: 7.10, 7.11, 7.12_
 
-  - [ ] 10.6 Create license verification REST API endpoints
+  - [x] 10.6 Create license verification REST API endpoints
     - POST /v1/telemedicine/licenses/verify - Verify pharmacist license
     - GET /v1/telemedicine/licenses/:pharmacistId - Get license status
     - POST /v1/telemedicine/licenses/:id/manual-review - Manual review (admin only)
@@ -404,46 +404,46 @@ This implementation plan breaks down the Telemedicine 2569 Legal Compliance feat
     - _Requirements: 7.2, 7.6, 7.9_
 
 
-- [ ] 11. Implement PDPA Compliance & Data Residency
-  - [ ] 11.1 Configure Thailand data residency
+- [x] 11. Implement PDPA Compliance & Data Residency
+  - [x] 11.1 Configure Thailand data residency
     - Verify PostgreSQL hosted in Thailand
     - Configure MinIO with Thailand-only storage
     - Verify Redis hosted in Thailand
     - Configure AWS services to use Bangkok region (ap-southeast-1)
     - _Requirements: 8.1, 8.2_
 
-  - [ ] 11.2 Implement data encryption
+  - [x] 11.2 Implement data encryption
     - Configure AES-256 encryption for data at rest
     - Ensure TLS 1.3 for data in transit
     - Encrypt sensitive fields in database (ID documents, recordings)
     - _Requirements: 8.3, 8.4_
 
-  - [ ] 11.3 Implement patient data export
+  - [x] 11.3 Implement patient data export
     - Create data export service for PDPA compliance
     - Generate JSON export of all patient data
     - Process export requests within 30 days
     - _Requirements: 8.7_
 
-  - [ ] 11.4 Implement patient data deletion
+  - [x] 11.4 Implement patient data deletion
     - Create data deletion service with 30-day processing
     - Anonymize personal identifiers while retaining medical records
     - Respect legal retention period (10 years)
     - Log all deletion requests in audit trail
     - _Requirements: 8.8, 8.9, 8.10_
 
-  - [ ] 11.5 Implement consent management for third-party data sharing
+  - [x] 11.5 Implement consent management for third-party data sharing
     - Require explicit consent before sharing data with third parties
     - Maintain data processing agreements
     - Log all data access and transfers
     - _Requirements: 8.5, 8.6, 8.10_
 
-  - [ ] 11.6 Implement role-based access control
+  - [x] 11.6 Implement role-based access control
     - Configure RBAC with principle of least privilege
     - Require MFA for staff accessing sensitive patient data
     - Log all data access attempts
     - _Requirements: 8.13, 8.14_
 
-  - [ ] 11.7 Create PDPA compliance REST API endpoints
+  - [x] 11.7 Create PDPA compliance REST API endpoints
     - POST /v1/telemedicine/pdpa/export-request - Request data export
     - POST /v1/telemedicine/pdpa/deletion-request - Request data deletion
     - GET /v1/telemedicine/pdpa/consent-status - Check consent status
@@ -458,13 +458,13 @@ This implementation plan breaks down the Telemedicine 2569 Legal Compliance feat
 
 
 - [ ] 12. Implement ส.พ. 16 Compliance Documentation
-  - [ ] 12.1 Create compliance documentation database schema
+  - [x] 12.1 Create compliance documentation database schema
     - Define tables for facility info, equipment inventory, staff qualifications
     - Track ส.พ. 16 authorization status and expiry
     - Maintain change log for system modifications
     - _Requirements: 9.1, 9.9, 9.10_
 
-  - [ ] 12.2 Implement documentation generator service
+  - [x] 12.2 Implement documentation generator service
     - Create service to generate ส.พ. 16 application package
     - Include facility information with photos and dimensions
     - Document licensed pharmacist list with qualifications
@@ -497,13 +497,13 @@ This implementation plan breaks down the Telemedicine 2569 Legal Compliance feat
     - _Requirements: 9.1, 9.8_
 
 
-- [ ] 13. Implement Quality Metrics & Compliance Monitoring
-  - [ ] 13.1 Create compliance monitoring database schema
+- [x] 13. Implement Quality Metrics & Compliance Monitoring
+  - [x] 13.1 Create compliance monitoring database schema
     - Define tables for metrics tracking and alerts
     - Store historical metric data for trend analysis
     - _Requirements: 10.1, 10.14_
 
-  - [ ] 13.2 Implement compliance monitor service
+  - [x] 13.2 Implement compliance monitor service
     - Create `ComplianceMonitorService` for real-time metrics
     - Track KYC verification success rate (target >95%)
     - Track consultation completion rate (target >90%)
@@ -512,19 +512,19 @@ This implementation plan breaks down the Telemedicine 2569 Legal Compliance feat
     - Track patient consent acceptance rate (target >98%)
     - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6_
 
-  - [ ] 13.3 Implement video quality monitoring
+  - [x] 13.3 Implement video quality monitoring
     - Track video resolution, frame rate, connection stability
     - Monitor bandwidth and connection drops
     - Alert on quality degradation
     - _Requirements: 10.7_
 
-  - [ ] 13.4 Implement compliance tracking
+  - [x] 13.4 Implement compliance tracking
     - Track pharmacist license compliance (target 100%)
     - Track audit trail completeness (target 100%)
     - Track data residency compliance (target 100%)
     - _Requirements: 10.8, 10.9, 10.10_
 
-  - [ ] 13.5 Implement reporting and alerting
+  - [x] 13.5 Implement reporting and alerting
     - Generate weekly compliance summary reports
     - Send automatic alerts when metrics fall below thresholds
     - Provide drill-down capability for issue investigation
@@ -537,7 +537,7 @@ This implementation plan breaks down the Telemedicine 2569 Legal Compliance feat
     - Include in compliance scorecard
     - _Requirements: 10.15_
 
-  - [ ] 13.7 Create compliance monitoring REST API endpoints
+  - [x] 13.7 Create compliance monitoring REST API endpoints
     - GET /v1/telemedicine/compliance/dashboard - Real-time dashboard metrics
     - GET /v1/telemedicine/compliance/metrics - Get specific metrics with date range
     - GET /v1/telemedicine/compliance/weekly-report - Generate weekly report
@@ -829,31 +829,31 @@ This implementation plan breaks down the Telemedicine 2569 Legal Compliance feat
     - _Requirements: 6.6_
 
 
-- [ ] 20. Integration & Wiring
-  - [ ] 20.1 Create telemedicine module structure
+- [x] 20. Integration & Wiring
+  - [x] 20.1 Create telemedicine module structure
     - Create `apps/api/src/modules/telemedicine` directory
     - Create submodules: kyc, audit, consent, scope, consultation, referral, license, compliance, recording
     - Create `telemedicine.module.ts` as parent module
     - Register all submodules and services
     - _Requirements: All_
 
-  - [ ] 20.2 Wire KYC module with audit trail
+  - [x] 20.2 Wire KYC module with audit trail
     - Inject `TelemedicineAuditService` into `KycService`
     - Log all KYC events (document upload, verification steps, completion)
     - _Requirements: 1.10, 6.1_
 
-  - [ ] 20.3 Wire consultation module with scope validator
+  - [x] 20.3 Wire consultation module with scope validator
     - Inject `ScopeValidatorService` into `ConsultationService`
     - Validate scope before creating consultation
     - Block consultation if validation fails
     - _Requirements: 4.1-4.14, 2.1_
 
-  - [ ] 20.4 Wire consultation module with e-consent
+  - [x] 20.4 Wire consultation module with e-consent
     - Inject `EConsentService` into `ConsultationService`
     - Require active consent before starting video session
     - _Requirements: 3.14, 2.1_
 
-  - [ ] 20.5 Wire consultation module with referral system
+  - [x] 20.5 Wire consultation module with referral system
     - Inject `ReferralService` into `ConsultationService`
     - Enable one-click referral from active consultation
     - Update consultation status when referred
@@ -864,7 +864,7 @@ This implementation plan breaks down the Telemedicine 2569 Legal Compliance feat
     - Link transcript to consultation record
     - _Requirements: 11.1, 2.10_
 
-  - [ ] 20.7 Wire license verifier with staff module
+  - [x] 20.7 Wire license verifier with staff module
     - Check license status before allowing consultation acceptance
     - Block expired pharmacists from accepting consultations
     - _Requirements: 7.9, 2.1_
@@ -874,7 +874,7 @@ This implementation plan breaks down the Telemedicine 2569 Legal Compliance feat
     - Aggregate data for dashboard
     - _Requirements: 10.1-10.16_
 
-  - [ ] 20.9 Register all routes in main app module
+  - [x] 20.9 Register all routes in main app module
     - Import `TelemedicineModule` in `app.module.ts`
     - Verify all endpoints are accessible
     - Apply authentication guards

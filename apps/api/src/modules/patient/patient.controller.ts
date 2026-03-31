@@ -162,4 +162,39 @@ export class PatientController {
   ) {
     return this.patientService.deleteMedication(user.id, medicationId);
   }
+
+  // ─── Addresses ──────────────────────────────────────────────
+
+  @PatientOnly()
+  @Get('me/addresses')
+  getMyAddresses(@CurrentUser() user: RequestUser) {
+    return this.patientService.getAddresses(user.id);
+  }
+
+  @PatientOnly()
+  @Post('me/addresses')
+  @HttpCode(HttpStatus.CREATED)
+  createMyAddress(@CurrentUser() user: RequestUser, @Body() dto: any) {
+    return this.patientService.createAddress(user.id, dto);
+  }
+
+  @PatientOnly()
+  @Patch('me/addresses/:addressId')
+  updateMyAddress(
+    @CurrentUser() user: RequestUser,
+    @Param('addressId', ParseUUIDPipe) addressId: string,
+    @Body() dto: any,
+  ) {
+    return this.patientService.updateAddress(user.id, addressId, dto);
+  }
+
+  @PatientOnly()
+  @Delete('me/addresses/:addressId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteMyAddress(
+    @CurrentUser() user: RequestUser,
+    @Param('addressId', ParseUUIDPipe) addressId: string,
+  ) {
+    return this.patientService.deleteAddress(user.id, addressId);
+  }
 }

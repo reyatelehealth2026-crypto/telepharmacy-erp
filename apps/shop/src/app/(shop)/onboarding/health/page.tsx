@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/store/auth';
+import { useAuthGuard } from '@/lib/use-auth-guard';
 import { createAllergy, createDisease } from '@/lib/patient';
 
 interface AllergyEntry {
@@ -54,6 +55,7 @@ const COMMON_DISEASES = [
 
 export default function HealthOnboardingPage() {
   const router = useRouter();
+  const { loading: authLoading, token } = useAuthGuard();
   const { accessToken } = useAuthStore();
   const [step, setStep] = useState<'allergies' | 'diseases' | 'done'>('allergies');
   const [saving, setSaving] = useState(false);
@@ -152,6 +154,8 @@ export default function HealthOnboardingPage() {
       setSaving(false);
     }
   };
+
+  if (authLoading) return <div className="flex items-center justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
 
   // ── Done Step ──────────────────────────────────────────────────────────
   if (step === 'done') {

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ArrowLeft, Star, Gift, TrendingUp, Clock, ChevronRight, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/auth';
+import { useAuthGuard } from '@/lib/use-auth-guard';
 import { getMyProfile } from '@/lib/patient';
 import type { PatientProfile } from '@/lib/patient';
 import { getTransactions, type LoyaltyTransaction } from '@/lib/loyalty';
@@ -16,13 +17,14 @@ const TIER_CONFIG: Record<string, { label: string; color: string; bg: string; ne
 };
 
 export default function LoyaltyPage() {
+  const { loading: authLoading, token } = useAuthGuard();
   const { accessToken } = useAuthStore();
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [transactions, setTransactions] = useState<LoyaltyTransaction[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!accessToken) { setLoading(false); return; }
+    if (!accessToken) return;
     Promise.all([
       getMyProfile(accessToken).catch(() => null),
       getTransactions(accessToken, 1, 10).catch(() => ({ data: [] })),
@@ -34,10 +36,12 @@ export default function LoyaltyPage() {
       .finally(() => setLoading(false));
   }, [accessToken]);
 
-  const points = profile?.loyaltyPoints ?? 2450;
-  const tier = (profile?.loyaltyTier ?? 'silver').toLowerCase();
+  const points = profile?.loyaltyPoints ?? 0;
+  const tier = (profile?.loyaltyTier ?? 'bronze').toLowerCase();
   const tierConfig = TIER_CONFIG[tier] ?? TIER_CONFIG.silver!;
   const progressPct = tierConfig.nextAt > 0 ? Math.min((points / tierConfig.nextAt) * 100, 100) : 100;
+
+  if (authLoading) return <div className="flex items-center justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
 
   return (
     <div className="pb-8">

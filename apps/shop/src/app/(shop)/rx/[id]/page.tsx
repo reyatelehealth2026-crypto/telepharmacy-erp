@@ -17,7 +17,9 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
 import { useAuthStore } from '@/store/auth';
+import { useAuthGuard } from '@/lib/use-auth-guard';
 import { getPrescription, type Prescription, getRxStatusConfig } from '@/lib/prescriptions';
 
 interface TimelineStep {
@@ -43,18 +45,16 @@ function buildTimeline(rx: Prescription): TimelineStep[] {
 
 export default function PrescriptionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  const { loading: authLoading, token } = useAuthGuard();
   const { accessToken } = useAuthStore();
   const [rx, setRx] = useState<Prescription | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    if (!accessToken) {
-      router.replace('/login');
-      return;
-    }
+    if (!accessToken) return;
     fetchRx();
-  }, [accessToken, router]);
+  }, [accessToken]);
 
   const fetchRx = async () => {
     if (!accessToken) return;
@@ -75,6 +75,8 @@ export default function PrescriptionDetailPage({ params }: { params: Promise<{ i
     await fetchRx();
     setRefreshing(false);
   };
+
+  if (authLoading) return <div className="flex items-center justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
 
   if (loading) {
     return (
@@ -232,11 +234,4 @@ export default function PrescriptionDetailPage({ params }: { params: Promise<{ i
   );
 }
 
-// Simple toast helper
-const toast = {
-  error: (msg: string) => {
-    if (typeof window !== 'undefined') {
-      console.error(msg);
-    }
-  },
-};
+

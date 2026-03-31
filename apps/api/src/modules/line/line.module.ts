@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bull';
 import { LineController } from './line.controller';
 import { LineStaffController } from './line-staff.controller';
+import { AiChatController } from './ai-chat.controller';
+import { ChatController } from './chat.controller';
 import { LineWebhookService } from './services/line-webhook.service';
 import { LineClientService } from './services/line-client.service';
 import { FlexMessageService } from './services/flex-message.service';
@@ -9,6 +11,7 @@ import { RichMenuService } from './services/rich-menu.service';
 import { BroadcastService, BROADCAST_QUEUE } from './services/broadcast.service';
 import { SmartOrderParserService } from './services/smart-order-parser.service';
 import { SentimentService } from './services/sentiment.service';
+import { ChatService } from './services/chat.service';
 import { BroadcastProcessor } from './processors/broadcast.processor';
 import { LineSignatureGuard } from './guards/line-signature.guard';
 
@@ -16,7 +19,7 @@ import { LineSignatureGuard } from './guards/line-signature.guard';
   imports: [
     BullModule.registerQueue({ name: BROADCAST_QUEUE }),
   ],
-  controllers: [LineController, LineStaffController],
+  controllers: [LineController, LineStaffController, AiChatController, ChatController],
   providers: [
     LineWebhookService,
     LineClientService,
@@ -25,6 +28,7 @@ import { LineSignatureGuard } from './guards/line-signature.guard';
     BroadcastService,
     SmartOrderParserService,
     SentimentService,
+    ChatService,
     BroadcastProcessor,
     LineSignatureGuard,
   ],

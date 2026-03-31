@@ -16,22 +16,20 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/auth';
+import { useAuthGuard } from '@/lib/use-auth-guard';
 import { getMyPrescriptions, type Prescription, getRxStatusConfig } from '@/lib/prescriptions';
 
 export default function RxStatusPage() {
   const router = useRouter();
-  const { accessToken, isAuthenticated } = useAuthStore();
+  const { loading: authLoading } = useAuthGuard();
+  const { accessToken } = useAuthStore();
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated()) {
-      router.replace('/login');
-      return;
-    }
     fetchPrescriptions();
-  }, [isAuthenticated, router]);
+  }, [accessToken]);
 
   const fetchPrescriptions = async () => {
     if (!accessToken) return;
@@ -52,7 +50,7 @@ export default function RxStatusPage() {
     setRefreshing(false);
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="flex h-[80vh] items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

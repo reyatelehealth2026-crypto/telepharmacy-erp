@@ -1,193 +1,145 @@
-# Project Structure & Organization
+# Project Structure
 
 ## Monorepo Layout
 
 ```
 telepharmacy-erp/
-├── apps/                    # Application packages
-│   ├── api/                 # NestJS backend API
-│   ├── admin/               # Next.js admin dashboard
-│   └── shop/                # Next.js customer LIFF app
-├── packages/                # Shared libraries
-│   ├── db/                  # Database schemas & migrations
-│   ├── shared/              # Common types & validators
-│   └── ai/                  # AI service integrations
-├── infra/                   # Infrastructure configuration
-└── docker-compose.yml       # Development services
+├── apps/
+│   ├── api/          # NestJS backend
+│   ├── admin/        # Next.js admin dashboard
+│   └── shop/         # Next.js customer LIFF app
+├── packages/
+│   ├── db/           # Drizzle ORM schemas & migrations
+│   ├── shared/       # Common types & Zod validators
+│   └── ai/           # Gemini AI integrations
+├── infra/            # Prometheus, Grafana, Redis configs
+└── docker-compose.yml
 ```
 
-## Application Structure
+## Backend API (apps/api/src/)
 
-### Backend API (apps/api)
 ```
-apps/api/src/
-├── main.ts                  # Application entry point
-├── app.module.ts            # Root NestJS module
-├── config/                  # Configuration modules
-│   ├── app.config.ts        # App settings
-│   ├── database.config.ts   # DB connection
-│   ├── jwt.config.ts        # JWT settings
-│   ├── line.config.ts       # LINE API config
-│   └── odoo.config.ts       # ERP integration
-├── database/                # Database connection module
-├── common/                  # Shared utilities
-│   ├── decorators/          # Custom decorators
-│   ├── filters/             # Exception filters
-│   ├── interceptors/        # Request/response interceptors
-│   └── pipes/               # Validation pipes
-└── modules/                 # Feature modules
-    ├── auth/                # Authentication & authorization
-    ├── health/              # Health check endpoints
-    ├── line/                # LINE webhook & messaging
-    └── patient/             # Patient management
-```
-
-### Frontend Applications
-
-#### Admin Dashboard (apps/admin)
-```
-apps/admin/src/
-├── app/                     # Next.js 15 app router
-│   ├── (auth)/             # Authentication routes
-│   │   └── login/          # Staff login
-│   ├── dashboard/          # Protected dashboard routes
-│   │   ├── pharmacist/     # Prescription queue
-│   │   ├── orders/         # Order management
-│   │   ├── patients/       # Patient records
-│   │   ├── products/       # Product catalog
-│   │   ├── inventory/      # Stock management
-│   │   ├── reports/        # Analytics & reports
-│   │   └── settings/       # System configuration
-│   ├── globals.css         # Global styles
-│   └── layout.tsx          # Root layout
-├── components/             # Reusable UI components
-│   ├── header.tsx          # Navigation header
-│   ├── sidebar.tsx         # Dashboard sidebar
-│   ├── stat-card.tsx       # Statistics display
-│   └── products/           # Product-specific components
-└── lib/                    # Utility functions
+├── main.ts
+├── app.module.ts
+├── config/              # NestJS config modules (app, db, jwt, line, odoo, meilisearch, telemedicine)
+├── database/            # Database connection module
+├── common/              # Decorators, filters, interceptors, pipes
+└── modules/
+    ├── adherence/       # Medication reminders
+    ├── adr/             # Adverse drug reactions
+    ├── auth/            # JWT auth + Passport
+    ├── compliance/      # General compliance
+    ├── drug-info/       # Drug information
+    ├── drug-safety/     # Drug interaction checks
+    ├── health/          # Health check endpoints
+    ├── inventory/       # Stock management
+    ├── line/            # LINE webhooks & messaging
+    ├── loyalty/         # Points system
+    ├── notifications/   # Push notifications
+    ├── odoo/            # Odoo ERP integration
+    ├── orders/          # Order processing
+    ├── patient/         # Patient management
+    ├── payment/         # Omise/PromptPay
+    ├── prescription/    # Prescription workflow
+    ├── product/         # Product catalog
+    ├── reports/         # Analytics
+    └── telemedicine/    # Thai Telemedicine Act 2569
+        ├── audit/       # Audit trail
+        ├── compliance/  # Compliance monitoring & documentation
+        ├── consent/     # Informed consent + PDF generation
+        ├── consultation/# Video/chat sessions (Agora)
+        ├── kyc/         # Identity verification
+        ├── license/     # Pharmacist license verification
+        ├── pdpa/        # PDPA data protection
+        ├── referral/    # Patient referral system
+        └── scope/       # Scope-of-practice validation
 ```
 
-#### Customer Shop (apps/shop)
+### NestJS Module Pattern
 ```
-apps/shop/src/
-├── app/                    # Next.js 15 app router
-│   └── (shop)/            # LIFF app routes
-│       ├── page.tsx       # Product catalog home
-│       ├── search/        # Product search
-│       ├── product/[id]/  # Product details
-│       ├── cart/          # Shopping cart
-│       ├── checkout/      # Payment flow
-│       ├── rx/            # Prescription management
-│       │   ├── upload/    # Upload prescription
-│       │   └── status/    # Prescription status
-│       ├── orders/        # Order history
-│       ├── profile/       # User profile
-│       └── consultation/  # Pharmacist chat
-├── components/            # UI components
-└── lib/                   # LIFF utilities
+module-name/
+├── module-name.module.ts      # Module definition
+├── module-name.controller.ts  # HTTP endpoints
+├── module-name.service.ts     # Business logic
+├── dto/                       # Zod-based DTOs
+└── *.spec.ts                  # Jest tests
 ```
 
-## Shared Packages
+## Admin Dashboard (apps/admin/src/)
 
-### Database Package (packages/db)
 ```
-packages/db/src/
-├── schema/                 # Drizzle ORM schemas
-│   ├── enums.ts           # PostgreSQL enums
-│   ├── staff.ts           # Staff accounts
-│   ├── patients.ts        # Patient records
-│   ├── drugs.ts           # Drug database
-│   ├── products.ts        # Product catalog
-│   ├── inventory.ts       # Stock tracking
-│   ├── prescriptions.ts   # Prescription workflow
-│   ├── orders.ts          # Order & payment
-│   ├── loyalty.ts         # Points system
-│   ├── chat.ts            # LINE messages
-│   ├── notifications.ts   # Push notifications
-│   ├── content.ts         # CMS content
-│   ├── complaints.ts      # Customer feedback
-│   ├── system.ts          # Audit & settings
-│   └── relations.ts       # Table relationships
-├── migrations/            # Database migrations
-└── seed/                  # Sample data
+├── app/
+│   ├── (auth)/login/          # Staff login
+│   ├── dashboard/             # Protected routes
+│   │   ├── pharmacist/        # Prescription queue
+│   │   ├── orders/            # Order management
+│   │   ├── patients/          # Patient records
+│   │   ├── products/          # Product catalog
+│   │   ├── inventory/         # Stock management
+│   │   ├── reports/           # Analytics
+│   │   └── settings/          # System config
+│   └── layout.tsx
+├── components/                # Reusable UI components
+├── lib/                       # API client, auth context, utilities
+└── middleware.ts               # Auth middleware
 ```
 
-### Shared Types (packages/shared)
+## Customer Shop (apps/shop/src/)
+
 ```
-packages/shared/src/
-├── types/                 # TypeScript interfaces
-├── validators/            # Zod validation schemas
-├── constants/             # Shared constants
-└── utils/                 # Common utilities
+├── app/(shop)/                # LIFF app routes
+│   ├── search/                # Product search
+│   ├── product/[id]/          # Product details
+│   ├── cart/                  # Shopping cart
+│   ├── checkout/              # Payment flow
+│   ├── rx/                    # Prescription upload & status
+│   ├── orders/                # Order history
+│   ├── profile/               # User profile
+│   └── consultation/          # Pharmacist chat
+├── components/                # UI components (layout, product, ui, providers)
+├── lib/                       # API client, LIFF utils, auth, domain helpers
+└── store/                     # Zustand stores (auth, cart, address)
 ```
 
-### AI Services (packages/ai)
+## Database Package (packages/db/src/)
+
 ```
-packages/ai/src/
-├── chatbot.ts            # Gemini chatbot
-├── ocr.ts                # Prescription OCR
-├── drug-checker.ts       # Drug interactions
-└── config.ts             # AI configuration
+├── schema/
+│   ├── enums.ts               # PostgreSQL enums
+│   ├── staff.ts, patients.ts  # User tables
+│   ├── drugs.ts, products.ts  # Catalog tables
+│   ├── inventory.ts           # Stock tracking
+│   ├── prescriptions.ts       # Rx workflow
+│   ├── orders.ts              # Orders & payments
+│   ├── loyalty.ts             # Points system
+│   ├── chat.ts                # LINE messages
+│   ├── notifications.ts       # Push notifications
+│   ├── clinical.ts            # Clinical data
+│   ├── campaigns.ts           # Marketing campaigns
+│   ├── telemedicine.ts        # Telemedicine tables
+│   ├── content.ts, complaints.ts, system.ts
+│   └── relations.ts           # Table relationships
+├── migrations/                # SQL migration files
+└── seed/                      # Seed scripts (drugs, staff, scope rules)
 ```
 
 ## Naming Conventions
 
-### Files & Directories
-- **kebab-case**: File and directory names (`user-profile.tsx`)
-- **PascalCase**: React components (`UserProfile.tsx`)
-- **camelCase**: Functions and variables
-- **SCREAMING_SNAKE_CASE**: Constants and environment variables
+| Context | Convention | Example |
+|---------|-----------|---------|
+| Files & dirs | kebab-case | `user-profile.tsx` |
+| React components | PascalCase | `UserProfile` |
+| Functions/vars | camelCase | `getPatient()` |
+| Constants/env | SCREAMING_SNAKE | `JWT_SECRET` |
+| DB tables/columns | snake_case | `patient_allergies` |
+| Drizzle exports | PascalCase | `PatientAllergies` |
+| API routes | kebab-case | `/v1/patient-allergies` |
+| Query params | camelCase | `?patientId=123` |
 
-### Database
-- **snake_case**: Table and column names (`patient_allergies`)
-- **PascalCase**: Drizzle schema exports (`PatientAllergies`)
-- **camelCase**: TypeScript field names in schemas
+## Import Aliases
 
-### API Routes
-- **kebab-case**: URL segments (`/api/v1/patient-allergies`)
-- **camelCase**: Query parameters (`?patientId=123`)
+- `@telepharmacy/db` — Database package
+- `@telepharmacy/shared` — Shared types
+- `@telepharmacy/ai` — AI services
 
-## Module Organization
-
-### NestJS Modules
-Each feature module follows this structure:
-```
-module-name/
-├── module-name.module.ts     # Module definition
-├── module-name.controller.ts # HTTP endpoints
-├── module-name.service.ts    # Business logic
-├── dto/                      # Data transfer objects
-├── guards/                   # Route guards
-├── decorators/               # Custom decorators
-└── interfaces/               # TypeScript interfaces
-```
-
-### Next.js Pages
-- Use app router with route groups for organization
-- Co-locate components with their pages when specific to that route
-- Shared components go in `/components` directory
-
-## Import Conventions
-
-### Path Aliases
-- `@telepharmacy/db` - Database package
-- `@telepharmacy/shared` - Shared types package  
-- `@telepharmacy/ai` - AI services package
-
-### Import Order
-1. External libraries (React, Next.js, etc.)
-2. Internal packages (`@telepharmacy/*`)
-3. Relative imports (`./`, `../`)
-4. Type-only imports (with `type` keyword)
-
-## Configuration Management
-
-### Environment Variables
-- `.env.example` - Template with all required variables
-- `.env` - Local development (gitignored)
-- Separate configs per environment (dev/staging/prod)
-
-### Feature Flags
-- Use environment variables for feature toggles
-- Document all flags in `.env.example`
+Import order: external libs → `@telepharmacy/*` → relative → type-only imports.

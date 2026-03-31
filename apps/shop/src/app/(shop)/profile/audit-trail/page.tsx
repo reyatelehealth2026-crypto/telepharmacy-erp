@@ -12,9 +12,11 @@ import {
   ChevronRight,
   AlertTriangle,
   CheckCircle,
+  Loader2,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useAuthGuard } from '@/lib/use-auth-guard';
 
 interface AuditEntry {
   id: string;
@@ -80,11 +82,14 @@ const ACTION_COLORS: Record<string, string> = {
 };
 
 export default function AuditTrailPage() {
+  const { loading: authLoading } = useAuthGuard();
   const [filter, setFilter] = useState<string>('all');
 
   const filteredLog = filter === 'all'
     ? MOCK_AUDIT_LOG
     : MOCK_AUDIT_LOG.filter((e) => e.action === filter);
+
+  if (authLoading) return <div className="flex items-center justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
 
   return (
     <div className="pb-20">

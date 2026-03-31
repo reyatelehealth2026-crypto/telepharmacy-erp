@@ -586,4 +586,54 @@ export class OrdersService {
 
     return `${prefix}${String(seq).padStart(3, '0')}`;
   }
+
+  /** Get orders with pending slip verification. */
+  async getPendingSlipOrders() {
+    const result = await this.db
+      .select()
+      .from(orders)
+      .where(eq(orders.status, 'awaiting_payment'))
+      .orderBy(desc(orders.createdAt))
+      .limit(50);
+    return { data: result, total: result.length };
+  }
+
+  /** Verify a payment slip (approve or reject). */
+  async verifySlip(orderId: string, approved: boolean, notes: string, staffId: string) {
+    const order = await this.getOrderEntity(orderId);
+    if (!order) throw new NotFoundException('Order not found');
+
+    if (approved) {
+      await this.db
+        .update(orders)
+        .set({ status: 'paid', paidAt: new Date(), internalNotes: notes })
+        .where(eq(orders.id, orderId));
+      this.logger.log(`Slip verified for order ${orderId} by staff ${staffId}`);
+      return { success: true, message: 'อนุมัติสลิปเรียบร้อย' };
+    } else {
+      await this.db
+        .update(orders)
+        .set({ status: 'cancelled', cancelledAt: new Date(), internalNotes: `สลิปไม่ถูกต้อง: ${notes}` })
+        .where(eq(orders.id, orderId));
+      this.logger.log(`Slip rejected for order ${orderId} by staff ${staffId}`);
+      return { success: true, message: 'ปฏิเสธสลิปเรียบร้อย' };
+    }
+  }
+
+  /** Process a refund for an order. */
+  async refundOrder(orderId: string, reason: string, staffId: string, amount?: number) {
+    const order = await this.getOrderEntity(orderId);
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.status === 'cancelled' || order.status === 'refunded') {
+      throw new BadRequestException('Order already cancelled/refunded');
+    }
+
+    await this.db
+      .update(orders)
+      .set({ status: 'cancelled', cancelledAt: new Date(), internalNotes: `Refund: ${reason}` })
+      .where(eq(orders.id, orderId));
+
+    this.logger.log(`Order ${orderId} refunded by staff ${staffId}: ${reason}`);
+    return { success: true, message: 'คืนเงินเรียบร้อย' };
+  }
 }

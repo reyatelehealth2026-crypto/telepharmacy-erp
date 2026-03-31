@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useAuthStore } from '@/store/auth';
+import { useAuthGuard } from '@/lib/use-auth-guard';
 import { toast } from 'sonner';
 import {
   getMyReminders,
@@ -35,6 +36,7 @@ const DAY_LABELS: Record<number, string> = {
 const ALL_DAYS = [1, 2, 3, 4, 5, 6, 7];
 
 export default function MedicationRemindersPage() {
+  const { loading: authLoading } = useAuthGuard();
   const { accessToken } = useAuthStore();
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [stats, setStats] = useState<AdherenceStats | null>(null);
@@ -48,7 +50,7 @@ export default function MedicationRemindersPage() {
   });
 
   const fetchData = useCallback(async () => {
-    if (!accessToken) { setLoading(false); return; }
+    if (!accessToken) return;
     try {
       const [r, s] = await Promise.all([
         getMyReminders(accessToken),
@@ -126,6 +128,8 @@ export default function MedicationRemindersPage() {
   };
 
   const adherenceRate = stats?.adherenceRate ?? 0;
+
+  if (authLoading) return <div className="flex items-center justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
 
   return (
     <div className="pb-24">

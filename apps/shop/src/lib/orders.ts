@@ -116,6 +116,21 @@ export async function reOrder(token: string, orderId: string): Promise<Order> {
   return res.data;
 }
 
+export interface CouponValidation {
+  valid: boolean;
+  discountAmount: number;
+  discountType: 'fixed' | 'percentage';
+  description: string;
+}
+
+export async function validateCoupon(
+  token: string,
+  code: string,
+  subtotal: number,
+): Promise<CouponValidation> {
+  return api.post<CouponValidation>('/v1/orders/validate-coupon', { code, subtotal }, token);
+}
+
 export const SHIPPING_OPTIONS: Array<{
   method: ShippingMethod;
   label: string;

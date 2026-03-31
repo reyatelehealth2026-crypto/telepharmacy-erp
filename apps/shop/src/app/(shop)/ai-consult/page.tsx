@@ -12,9 +12,13 @@ import {
   Pill,
   AlertTriangle,
   Stethoscope,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { sendAiChat } from '@/lib/ai-chat';
+import { useAuthStore } from '@/store/auth';
+import { useAuthGuard } from '@/lib/use-auth-guard';
 
 interface ChatMessage {
   id: string;
@@ -36,11 +40,13 @@ const SUGGESTED_QUESTIONS = [
 
 export default function AIChatbotPage() {
   const router = useRouter();
+  const { token, loading: authLoading } = useAuthGuard();
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
       role: 'assistant',
-      content: 'สวัสดีค่ะ! ดิฉันเป็น AI ผู้ช่วยเภสัชกร 🤖\n\nดิฉันสามารถช่วยแนะนำยาเบื้องต้นจากอาการที่คุณเล่าให้ฟัง แต่ไม่สามารถวินิจฉัยโรคหรือแทนการปรึกษาแพทย์/เภสัชกรได้นะคะ',
+      content:
+        'สวัสดีค่ะ! ดิฉันเป็น AI ผู้ช่วยเภสัชกร 🤖\n\nดิฉันสามารถช่วยแนะนำยาเบื้องต้นจากอาการที่คุณเล่าให้ฟัง แต่ไม่สามารถวินิจฉัยโรคหรือแทนการปรึกษาแพทย์/เภสัชกรได้นะคะ',
     },
   ]);
   const [input, setInput] = useState('');
@@ -52,7 +58,7 @@ export default function AIChatbotPage() {
   }, [messages]);
 
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || !token) return;
 
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
@@ -64,75 +70,68 @@ export default function AIChatbotPage() {
     setInput('');
     setLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse = generateAIResponse(input);
-      setMessages((prev) => [...prev, aiResponse]);
+    try {
+      const history = messages
+        .filter((m) => m.id !== 'welcome')
+        .map((m) => ({ role: m.role, content: m.content }));
+
+      const response = await sendAiChat(token, input, history);
+
+      const recommendations: ChatMessage['recommendations'] = [];
+
+      if (response.products?.length) {
+        for (const p of response.products) {
+          recommendations.push({
+            type: 'drug',
+            name: p.name,
+            description: p.reason,
+          });
+        }
+      }
+
+      if (response.disclaimer) {
+        recommendations.push({
+          type: 'advice',
+          name: 'คำเตือน',
+          description: response.disclaimer,
+        });
+      }
+
+      if (response.shouldTransfer) {
+        recommendations.push({
+          type: 'advice',
+          name: 'แนะนำ',
+          description: 'ควรปรึกษาเภสัชกรโดยตรง',
+        });
+      }
+
+      const aiMsg: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: response.message,
+        ...(recommendations.length > 0 ? { recommendations } : {}),
+      };
+
+      setMessages((prev) => [...prev, aiMsg]);
+    } catch {
+      const errorMsg: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: 'ขออภัย ไม่สามารถเชื่อมต่อ AI ได้ กรุณาลองใหม่',
+      };
+      setMessages((prev) => [...prev, errorMsg]);
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
   };
 
-  const generateAIResponse = (userInput: string): ChatMessage => {
-    const lower = userInput.toLowerCase();
-    
-    if (lower.includes('ปวดหัว') || lower.includes('ไมเกรน')) {
-      return {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'อาการปวดหัวอาจเกิดจากหลายสาเหตุค่ะ ยาเบื้องต้นที่แนะนำ:',
-        recommendations: [
-          { type: 'drug', name: 'พาราเซตามอล (Paracetamol)', description: 'ลดปวด ลดไข้ 500mg 1-2 เม็ด ทุก 4-6 ชม.' },
-          { type: 'drug', name: 'ไอบูโพรเฟน (Ibuprofen)', description: 'NSAID ลดอักเสบ 200-400mg หลังอาหาร' },
-          { type: 'advice', name: 'คำแนะนำ', description: 'พักผ่อนให้เพียงพอ ดื่มน้ำมากๆ หลีกเลี่ยงแสงจ้า' },
-        ],
-      };
-    }
-
-    if (lower.includes('ท้องเสีย') || lower.includes('ถ่าย')) {
-      return {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'ท้องเสียอาจเกิดจากอาหารเป็นพิษหรือไวรัสค่ะ แนะนำ:',
-        recommendations: [
-          { type: 'drug', name: 'สมูทติ้งเอล (Smecta)', description: 'ดินสมานท้อง ซองละ 3g ผสมน้ำ' },
-          { type: 'drug', name: 'ออรัลรีไฮเดรเทชั่น (ORS)', description: 'น้ำเกลือแร่ชดเชยการสูญเสียน้ำ' },
-          { type: 'advice', name: 'คำเตือน', description: 'ถ้ามีเลือดหรือท้องเสียมากกว่า 3 วัน ควรพบแพทย์' },
-        ],
-      };
-    }
-
-    if (lower.includes('คัดจมูก') || lower.includes('ไข้หวัด') || lower.includes('จาม')) {
-      return {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'อาการไข้หวัดทั่วไป แนะนำยาบรรเทาอาการ:',
-        recommendations: [
-          { type: 'drug', name: 'ยาแก้แพ้ (Antihistamine)', description: 'Cetirizine 10mg วันละ 1 เม็ด' },
-          { type: 'drug', name: 'พาราเซตามอล', description: 'ลดไข้ 500mg เมื่อมีไข้' },
-          { type: 'advice', name: 'คำแนะนำ', description: 'ดื่มน้ำอุ่น พักผ่อน งดอาหารเย็น' },
-        ],
-      };
-    }
-
-    if (lower.includes('ผื่น') || lower.includes('คัน')) {
-      return {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'ผื่นคันอาจเกิดจากภูมิแพ้หรือผิวหนังอักเสบค่ะ:',
-        recommendations: [
-          { type: 'drug', name: 'ยาแก้แพ้ (Cetirizine)', description: 'ลดอาการคัน 10mg วันละครั้ง' },
-          { type: 'drug', name: 'แคลามายด์โลชั่น', description: 'ทาผิวบรรเทาคัน 3-4 ครั้ง/วัน' },
-          { type: 'advice', name: 'คำเตือน', description: 'หากผื่นลามเร็วหรือมีไข้สูง รีบพบแพทย์' },
-        ],
-      };
-    }
-
-    return {
-      id: (Date.now() + 1).toString(),
-      role: 'assistant',
-      content: 'ขออภัยค่ะ ดิฉันไม่แน่ใจอาการนี้ แนะนำให้:\n\n1. อธิบายอาการเพิ่มเติม เช่น ปวดตรงไหน มานานแค่ไหน\n2. หรือคลิก "ปรึกษาเภสัชกร" เพื่อคุยกับเภสัชกรโดยตรง',
-    };
-  };
+  if (authLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen flex-col bg-background">
@@ -186,7 +185,7 @@ export default function AIChatbotPage() {
                 </span>
               </div>
               <p className="text-sm whitespace-pre-line">{msg.content}</p>
-              
+
               {msg.recommendations && (
                 <div className="mt-3 space-y-2">
                   {msg.recommendations.map((rec, i) => (

@@ -1,27 +1,28 @@
 # Product Overview
 
-**LINE Telepharmacy ERP (B2C)** - A comprehensive online pharmacy system operating through LINE platform for Thai customers.
+**LINE Telepharmacy ERP (B2C)** — Online pharmacy system on the LINE platform for Thai customers.
 
 ## Core Features
 
-- **LINE Integration**: Customer shop operates as LIFF app within LINE ecosystem
-- **Prescription Management**: OCR-powered prescription upload and pharmacist review workflow
-- **E-commerce**: Full product catalog with inventory management and order processing
-- **Payment**: PromptPay QR code integration for seamless Thai payment experience
-- **Consultation**: Direct pharmacist consultation through LINE chat
-- **AI Services**: Gemini 2.5 Pro for chatbot, OCR, and drug interaction checking
-- **PDPA Compliance**: Full compliance with Thai Personal Data Protection Act
+- **LINE Integration**: Customer shop runs as a LIFF app inside LINE
+- **Prescription Management**: OCR-powered upload → pharmacist review workflow
+- **E-commerce**: Product catalog, inventory, order processing
+- **Payment**: PromptPay QR via Omise
+- **Consultation**: Pharmacist video/chat consultation (Agora for video)
+- **Telemedicine**: Thai Telemedicine Act 2569 compliant — KYC, consent, scope validation, audit trail, compliance monitoring, PDPA, license verification, referral system
+- **AI Services**: Gemini 2.5 Pro for chatbot, prescription OCR, drug interaction checking
+- **PDPA Compliance**: Thai Personal Data Protection Act
 
 ## Target Users
 
 - **Customers**: Thai patients ordering medications through LINE
-- **Pharmacists**: Licensed professionals reviewing prescriptions and providing consultations
-- **Staff**: Administrative users managing inventory, orders, and system operations
+- **Pharmacists**: Licensed professionals reviewing prescriptions and consultations
+- **Staff**: Admin users managing inventory, orders, and system operations
 
 ## Business Model
 
-B2C online pharmacy with focus on:
-- Prescription medication fulfillment
-- Over-the-counter drug sales
-- Professional pharmaceutical consultation
-- Loyalty program with points system
+B2C online pharmacy: prescription fulfillment, OTC drug sales, pharmaceutical consultation, loyalty points system.
+
+## Regulatory Context
+
+Must comply with Thai Telemedicine Act B.E. 2569 — identity verification (KYC), informed consent, scope-of-practice validation, audit trails, pharmacist license verification, and PDPA data protection.

@@ -17,9 +17,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuthStore } from '@/store/auth';
 import { toast } from 'sonner';
+import { useAuthGuard } from '@/lib/use-auth-guard';
 
 export default function DeleteAccountPage() {
   const router = useRouter();
+  const { loading: authLoading } = useAuthGuard();
   const { clearAuth } = useAuthStore();
   const [step, setStep] = useState<'confirm' | 'reason' | 'final'>('confirm');
   const [confirmText, setConfirmText] = useState('');
@@ -38,6 +40,8 @@ export default function DeleteAccountPage() {
       router.replace('/');
     }, 2000);
   };
+
+  if (authLoading) return <div className="flex items-center justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
 
   // ── Step 1: Confirm ────────────────────────────────────────────────
   if (step === 'confirm') {

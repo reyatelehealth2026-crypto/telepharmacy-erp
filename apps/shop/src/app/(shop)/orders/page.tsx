@@ -1,38 +1,19 @@
-import Link from 'next/link';
-import { Package, Truck, CheckCircle, Clock, XCircle, ClipboardList } from 'lucide-react';
+'use client';
 
-const mockOrders = [
-  {
-    id: '1',
-    orderNo: 'REYA-20260330-001',
-    status: 'shipped',
-    totalAmount: 183,
-    itemCount: 2,
-    createdAt: '2026-03-30T07:00:00',
-    trackingNo: 'KRY123456789',
-  },
-  {
-    id: '2',
-    orderNo: 'REYA-20260328-002',
-    status: 'delivered',
-    totalAmount: 350,
-    itemCount: 3,
-    createdAt: '2026-03-28T10:00:00',
-  },
-  {
-    id: '3',
-    orderNo: 'REYA-20260325-003',
-    status: 'completed',
-    totalAmount: 89,
-    itemCount: 1,
-    createdAt: '2026-03-25T15:00:00',
-  },
-];
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { Package, Truck, CheckCircle, Clock, XCircle, ClipboardList, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { useAuthStore } from '@/store/auth';
+import { getMyOrders, type Order } from '@/lib/orders';
+import { formatPrice } from '@/lib/utils';
 
 const statusConfig: Record<string, { label: string; color: string; icon: typeof Package }> = {
   awaiting_payment: { label: 'รอชำระเงิน', color: 'text-amber-600', icon: Clock },
   paid: { label: 'ชำระแล้ว', color: 'text-blue-600', icon: CheckCircle },
   processing: { label: 'กำลังเตรียม', color: 'text-blue-600', icon: Package },
+  packed: { label: 'แพ็คแล้ว', color: 'text-indigo-600', icon: Package },
   shipped: { label: 'จัดส่งแล้ว', color: 'text-purple-600', icon: Truck },
   delivered: { label: 'ส่งถึงแล้ว', color: 'text-green-600', icon: CheckCircle },
   completed: { label: 'เสร็จสิ้น', color: 'text-green-600', icon: CheckCircle },
@@ -40,6 +21,31 @@ const statusConfig: Record<string, { label: string; color: string; icon: typeof 
 };
 
 export default function OrdersPage() {
+  const router = useRouter();
+  const { accessToken } = useAuthStore();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!accessToken) {
+      router.replace('/login');
+      return;
+    }
+
+    getMyOrders(accessToken)
+      .then((res) => setOrders(res.data))
+      .catch((err) => toast.error(err.message || 'โหลดคำสั่งซื้อไม่สำเร็จ'))
+      .finally(() => setLoading(false));
+  }, [accessToken, router]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="px-4 pt-4">
@@ -47,7 +53,7 @@ export default function OrdersPage() {
       </div>
 
       <div className="mt-4 space-y-3 px-4">
-        {mockOrders.map((order) => {
+        {orders.map((order) => {
           const config = statusConfig[order.status] ?? { label: 'กำลังเตรียม', color: 'text-blue-600', icon: Package };
           const Icon = config.icon;
           return (
@@ -64,13 +70,13 @@ export default function OrdersPage() {
                 </div>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                {new Date(order.createdAt).toLocaleDateString('th-TH')} · {order.itemCount} รายการ
+                {new Date(order.createdAt).toLocaleDateString('th-TH')} · {order.items.length} รายการ
               </p>
               <div className="mt-2 flex items-center justify-between">
-                <span className="text-sm font-bold">฿{order.totalAmount}</span>
-                {order.trackingNo && (
+                <span className="text-sm font-bold">{formatPrice(order.totalAmount)}</span>
+                {order.delivery?.trackingNo && (
                   <span className="text-xs text-muted-foreground">
-                    Tracking: {order.trackingNo}
+                    Tracking: {order.delivery.trackingNo}
                   </span>
                 )}
               </div>
@@ -78,7 +84,7 @@ export default function OrdersPage() {
           );
         })}
 
-        {mockOrders.length === 0 && (
+        {orders.length === 0 && (
           <div className="py-12 text-center">
             <ClipboardList className="mx-auto h-12 w-12 text-muted-foreground/30" />
             <p className="mt-2 text-sm text-muted-foreground">ยังไม่มีคำสั่งซื้อ</p>

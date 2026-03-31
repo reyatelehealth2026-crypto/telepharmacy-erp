@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -13,32 +13,25 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/store/auth';
-
-interface ChatMessage {
-  id: string;
-  sender: 'user' | 'pharmacist';
-  text: string;
-  timestamp: string;
-  read: boolean;
-  imageUrl?: string;
-}
+import { useAuthGuard } from '@/lib/use-auth-guard';
+import {
+  getOrCreateSession,
+  getMessages,
+  sendChatMessage,
+  type ChatMessage,
+} from '@/lib/chat';
 
 export default function ChatConsultationPage() {
+  const { token, loading: authLoading } = useAuthGuard();
   const { patient } = useAuthStore();
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: '1',
-      sender: 'pharmacist',
-      text: 'สวัสดีค่ะ ดิฉันเภสัชกรรุ่งนภา ยินดีให้คำปรึกษาค่ะ มีอะไรให้ช่วยเหลือคะ?',
-      timestamp: new Date().toISOString(),
-      read: true,
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
-  const [pharmacistOnline, setPharmacistOnline] = useState(true);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [assignedTo, setAssignedTo] = useState<string | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const lastTimestampRef = useRef<string | undefined>(undefined);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Scroll to bottom when messages change
@@ -46,56 +39,103 @@ export default function ChatConsultationPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Simulate pharmacist online status changing
+  // Initialize session and load messages
   useEffect(() => {
-    const interval = setInterval(() => {
-      // Randomly toggle online status (in production, this would be from WebSocket)
-      if (Math.random() > 0.9) {
-        setPharmacistOnline((prev) => !prev);
+    if (!token) return;
+
+    let cancelled = false;
+
+    async function init() {
+      try {
+        const session = await getOrCreateSession(token!);
+        if (cancelled) return;
+        setSessionId(session.id);
+
+        const res = await getMessages(token!, session.id);
+        if (cancelled) return;
+        setMessages(res.data);
+        setAssignedTo(res.assignedTo);
+
+        if (res.data.length > 0) {
+          const last = res.data[res.data.length - 1];
+          if (last) lastTimestampRef.current = last.createdAt;
+        }
+      } catch (err) {
+        console.error('Failed to init chat session:', err);
+      } finally {
+        if (!cancelled) setSessionLoading(false);
       }
-    }, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    }
 
-  const handleSend = () => {
-    if (!inputText.trim()) return;
-
-    const newMessage: ChatMessage = {
-      id: Date.now().toString(),
-      sender: 'user',
-      text: inputText,
-      timestamp: new Date().toISOString(),
-      read: false,
+    init();
+    return () => {
+      cancelled = true;
     };
+  }, [token]);
 
-    setMessages((prev) => [...prev, newMessage]);
+  // Poll for new messages every 3 seconds
+  useEffect(() => {
+    if (!sessionId || !token) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await getMessages(
+          token,
+          sessionId,
+          lastTimestampRef.current,
+        );
+        if (res.data.length > 0) {
+          setMessages((prev) => [...prev, ...res.data]);
+          const last = res.data[res.data.length - 1];
+          if (last) lastTimestampRef.current = last.createdAt;
+        }
+        if (res.assignedTo) setAssignedTo(res.assignedTo);
+      } catch {
+        // Silently ignore polling errors
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [sessionId, token]);
+
+  const handleSend = useCallback(async () => {
+    if (!inputText.trim() || !sessionId || !token || sending) return;
+
+    const text = inputText.trim();
     setInputText('');
     setSending(true);
 
-    // Simulate pharmacist typing and response
-    setTimeout(() => {
-      setMessages((prev) =>
-        prev.map((m) => (m.id === newMessage.id ? { ...m, read: true } : m))
-      );
-
-      setTimeout(() => {
-        const pharmacistReply: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          sender: 'pharmacist',
-          text: 'ขอบคุณสำหรับคำถามค่ะ ดิฉันจะตรวจสอบและตอบกลับให้เร็วที่สุดค่ะ',
-          timestamp: new Date().toISOString(),
-          read: true,
-        };
-        setMessages((prev) => [...prev, pharmacistReply]);
-        setSending(false);
-      }, 1500);
-    }, 1000);
-  };
+    try {
+      const msg = await sendChatMessage(token, sessionId, text);
+      setMessages((prev) => [...prev, msg]);
+      lastTimestampRef.current = msg.createdAt;
+    } catch (err) {
+      console.error('Failed to send message:', err);
+      // Restore input on failure
+      setInputText(text);
+    } finally {
+      setSending(false);
+    }
+  }, [inputText, sessionId, token, sending]);
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
-    return date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString('th-TH', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
+
+  if (authLoading || sessionLoading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const isPharmacistMsg = (role: string) =>
+    role === 'system' || role === 'pharmacist';
 
   return (
     <div className="flex h-screen flex-col bg-background">
@@ -109,20 +149,22 @@ export default function ChatConsultationPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
               <span className="text-sm font-bold text-primary">พญ.</span>
             </div>
-            {pharmacistOnline && (
+            {assignedTo && (
               <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-green-500" />
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="text-sm font-bold truncate">เภสัชกรรุ่งนภา</h1>
+            <h1 className="text-sm font-bold truncate">
+              {assignedTo ? 'เภสัชกร' : 'ระบบอัตโนมัติ'}
+            </h1>
             <p className="text-xs text-muted-foreground">
-              {pharmacistOnline ? (
+              {assignedTo ? (
                 <span className="flex items-center gap-1">
                   <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
                   ออนไลน์
                 </span>
               ) : (
-                'ออฟไลน์'
+                'รอเภสัชกรรับเรื่อง'
               )}
             </p>
           </div>
@@ -142,24 +184,26 @@ export default function ChatConsultationPage() {
         {messages.map((msg) => (
           <div
             key={msg.id}
-            className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
               className={`max-w-[75%] rounded-2xl px-4 py-2 ${
-                msg.sender === 'user'
+                msg.role === 'user'
                   ? 'bg-primary text-primary-foreground'
                   : 'bg-muted'
               }`}
             >
-              <p className="text-sm">{msg.text}</p>
+              <p className="text-sm">{msg.content}</p>
               <div
                 className={`mt-1 flex items-center justify-end gap-1 text-[10px] ${
-                  msg.sender === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                  msg.role === 'user'
+                    ? 'text-primary-foreground/70'
+                    : 'text-muted-foreground'
                 }`}
               >
-                <span>{formatTime(msg.timestamp)}</span>
-                {msg.sender === 'user' && (
-                  <CheckCheck className={`h-3 w-3 ${msg.read ? 'text-blue-400' : ''}`} />
+                <span>{formatTime(msg.createdAt)}</span>
+                {msg.role === 'user' && (
+                  <CheckCheck className="h-3 w-3" />
                 )}
               </div>
             </div>
@@ -179,17 +223,20 @@ export default function ChatConsultationPage() {
 
       {/* Quick Actions */}
       <div className="flex gap-2 overflow-x-auto px-4 py-2">
-        {['ยาที่กินอยู่มีผลข้างเคียง?', 'สั่งยาซ้ำ', 'ถามเรื่องยาใหม่', 'นัดปรึกษา'].map(
-          (text) => (
-            <button
-              key={text}
-              onClick={() => setInputText(text)}
-              className="whitespace-nowrap rounded-full border px-3 py-1.5 text-xs hover:bg-muted"
-            >
-              {text}
-            </button>
-          )
-        )}
+        {[
+          'ยาที่กินอยู่มีผลข้างเคียง?',
+          'สั่งยาซ้ำ',
+          'ถามเรื่องยาใหม่',
+          'นัดปรึกษา',
+        ].map((text) => (
+          <button
+            key={text}
+            onClick={() => setInputText(text)}
+            className="whitespace-nowrap rounded-full border px-3 py-1.5 text-xs hover:bg-muted"
+          >
+            {text}
+          </button>
+        ))}
       </div>
 
       {/* Input */}

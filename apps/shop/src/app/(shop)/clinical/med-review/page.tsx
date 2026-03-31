@@ -15,6 +15,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { useAuthGuard } from '@/lib/use-auth-guard';
+import { createMedicationReview } from '@/lib/drug-info';
 
 interface MedicationReviewRequest {
   medications: string[];
@@ -24,6 +26,7 @@ interface MedicationReviewRequest {
 
 export default function MedicationReviewPage() {
   const router = useRouter();
+  const { token, patient, loading: authLoading } = useAuthGuard();
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
@@ -52,19 +55,37 @@ export default function MedicationReviewPage() {
   };
 
   const handleSubmit = async () => {
-    const validMeds = form.medications.filter((m) => m.trim()).length;
-    if (validMeds === 0) {
+    const validMeds = form.medications.filter((m) => m.trim());
+    if (validMeds.length === 0) {
       toast.error('กรุณาระบุยาอย่างน้อย 1 รายการ');
       return;
     }
+    if (!token) return;
 
     setSubmitting(true);
-    setTimeout(() => {
-      setSubmitting(false);
+    try {
+      await createMedicationReview(token, {
+        patientId: patient?.id ?? '',
+        medications: validMeds.map((m) => ({ drugName: m })),
+        symptoms: form.symptoms || undefined,
+        concerns: form.concerns || undefined,
+      });
       setSubmitted(true);
       toast.success('ส่งคำขอ Medication Review สำเร็จ');
-    }, 1500);
+    } catch (err: any) {
+      toast.error(err?.message || 'ส่งคำขอไม่สำเร็จ');
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   if (submitted) {
     return (

@@ -16,6 +16,11 @@ import {
   Settings,
   LogOut,
   Pill,
+  AlertTriangle,
+  Stethoscope,
+  MessageSquare,
+  Video,
+  Shield,
 } from 'lucide-react';
 
 const navigation: {
@@ -30,6 +35,11 @@ const navigation: {
   { name: 'ผู้ป่วย', href: '/dashboard/patients', icon: Users, roles: ['pharmacist', 'super_admin', 'pharmacist_tech', 'customer_service'] },
   { name: 'สินค้า', href: '/dashboard/products', icon: Pill },
   { name: 'คลังสินค้า', href: '/dashboard/inventory', icon: Warehouse, roles: ['pharmacist', 'super_admin', 'pharmacist_tech'] },
+  { name: 'ADR Reports', href: '/dashboard/adr', icon: AlertTriangle, roles: ['pharmacist', 'super_admin', 'pharmacist_tech'] },
+  { name: 'Clinical', href: '/dashboard/clinical', icon: Stethoscope, roles: ['pharmacist', 'super_admin', 'pharmacist_tech'] },
+  { name: 'Telemedicine', href: '/dashboard/telemedicine', icon: Video, roles: ['pharmacist', 'super_admin'] },
+  { name: 'KYC Review', href: '/dashboard/kyc', icon: Shield, roles: ['pharmacist', 'super_admin'] },
+  { name: 'LINE Messaging', href: '/dashboard/messaging', icon: MessageSquare, roles: ['pharmacist', 'super_admin'] },
   { name: 'รายงาน', href: '/dashboard/reports', icon: BarChart3, roles: ['pharmacist', 'super_admin', 'accounting'] },
   { name: 'ตั้งค่า', href: '/dashboard/settings', icon: Settings, roles: ['super_admin'] },
 ];

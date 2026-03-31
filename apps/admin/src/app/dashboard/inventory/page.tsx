@@ -37,12 +37,12 @@ export default async function InventoryPage({
     <div className="space-y-6">
       <PageHeader title="คลังสินค้า" description="จัดการสต็อกและข้อมูลจาก Odoo ERP">
         <div className="flex gap-2">
-          <button className="inline-flex h-9 items-center rounded-lg border px-4 text-sm font-medium transition-colors hover:bg-muted">
-            Export
-          </button>
-          <button className="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
+          <a href="/dashboard/inventory/movements" className="inline-flex h-9 items-center rounded-lg border px-4 text-sm font-medium transition-colors hover:bg-muted">
+            ประวัติเคลื่อนไหว
+          </a>
+          <a href="/dashboard/inventory/receive" className="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
             รับสินค้าเข้า
-          </button>
+          </a>
         </div>
       </PageHeader>
 

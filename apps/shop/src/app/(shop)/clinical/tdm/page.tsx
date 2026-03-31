@@ -17,9 +17,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
+import { useAuthGuard } from '@/lib/use-auth-guard';
+import { createTdmRequest } from '@/lib/drug-info';
 
 export default function TDMPage() {
   const router = useRouter();
+  const { loading: authLoading, token } = useAuthGuard();
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [labFile, setLabFile] = useState<File | null>(null);
@@ -40,13 +43,28 @@ export default function TDMPage() {
       return;
     }
 
+    if (!token) return;
     setSubmitting(true);
-    setTimeout(() => {
-      setSubmitting(false);
+    try {
+      await createTdmRequest(token, {
+        medicationName: form.medicationName,
+        dose: form.dose || undefined,
+        labValue: form.labValue,
+        labUnit: form.labUnit,
+        samplingTime: form.samplingTime || undefined,
+        lastDoseTime: form.lastDoseTime || undefined,
+        notes: form.notes || undefined,
+      });
       setSubmitted(true);
       toast.success('ส่งคำขอ TDM สำเร็จ');
-    }, 1500);
+    } catch (err: any) {
+      toast.error(err?.message || 'ส่งคำขอไม่สำเร็จ');
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  if (authLoading) return <div className="flex items-center justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
 
   if (submitted) {
     return (

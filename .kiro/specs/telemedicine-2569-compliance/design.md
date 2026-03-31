@@ -2122,3 +2122,23 @@ export class LicenseVerifierService {
 }
 ```
 
+
+
+### 8. Consultation Recording Parser & Pretty Printer
+
+#### Database Schema
+
+```typescript
+// packages/db/src/schema/telemedicine.ts (continued)
+
+export const consultationTranscripts = pgTable("consultation_transcripts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  consultationId: uuid("consultation_id").notNull().references(() => videoConsultations.id),
+  
+  // Raw transcript
+  rawTranscript: text("raw_transcript"),
+  transcriptFormat: varchar("transcript_format", { length: 20 }).default("json"), // json, vtt, srt
+  
+  // Parsed structured data
+  structuredData: jsonb("structured_data"), // Extracted clinical information
+  speakers: jsonb("speakers"),

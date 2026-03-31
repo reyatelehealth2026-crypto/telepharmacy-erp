@@ -25,8 +25,9 @@ import { Badge } from '@/components/ui/badge';
 import { useCartStore } from '@/store/cart';
 import { useAddressStore, type Address } from '@/store/address';
 import { useAuthStore } from '@/store/auth';
+import { useAuthGuard } from '@/lib/use-auth-guard';
 import { formatPrice } from '@/lib/utils';
-import { createOrder, SHIPPING_OPTIONS, type ShippingMethod, type PaymentMethod } from '@/lib/orders';
+import { createOrder, validateCoupon, SHIPPING_OPTIONS, type ShippingMethod, type PaymentMethod } from '@/lib/orders';
 import { toast } from 'sonner';
 
 type CheckoutStep = 'address' | 'review';
@@ -39,6 +40,7 @@ const PAYMENT_OPTIONS: Array<{ method: PaymentMethod; label: string; desc: strin
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const { loading: authLoading } = useAuthGuard();
   const { items, subtotal, clearCart } = useCartStore();
   const { addresses, addAddress, getSelected, selectAddress } = useAddressStore();
   const { accessToken } = useAuthStore();
@@ -65,6 +67,8 @@ export default function CheckoutPage() {
     notes: '',
   });
 
+  if (authLoading) return <div className="flex items-center justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
+
   const shipping = SHIPPING_OPTIONS.find((s) => s.method === shippingMethod) ?? SHIPPING_OPTIONS[0]!;
   const deliveryFee = subtotal() >= shipping.freeAbove && shipping.freeAbove > 0 ? 0 : shipping.price;
   const total = subtotal() - couponDiscount + deliveryFee;
@@ -83,12 +87,21 @@ export default function CheckoutPage() {
     setStep('review');
   };
 
-  const handleApplyCoupon = () => {
+  const handleApplyCoupon = async () => {
     if (!couponCode.trim()) return;
-    // Stub: would call API to validate coupon
-    setCouponApplied(true);
-    setCouponDiscount(50);
-    toast.success('ใช้โค้ดส่วนลดสำเร็จ');
+    try {
+      const token = accessToken ?? '';
+      const result = await validateCoupon(token, couponCode.trim(), subtotal());
+      if (result.valid) {
+        setCouponApplied(true);
+        setCouponDiscount(result.discountAmount);
+        toast.success(result.description || 'ใช้โค้ดส่วนลดสำเร็จ');
+      } else {
+        toast.error('โค้ดส่วนลดไม่ถูกต้องหรือหมดอายุ');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'ไม่สามารถตรวจสอบโค้ดส่วนลดได้');
+    }
   };
 
   const handlePlaceOrder = async () => {
@@ -104,7 +117,7 @@ export default function CheckoutPage() {
     setSubmitting(true);
     try {
       const token = accessToken ?? '';
-      await createOrder(token, {
+      const order = await createOrder(token, {
         items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
         shippingMethod,
         paymentMethod,
@@ -124,7 +137,12 @@ export default function CheckoutPage() {
 
       clearCart();
       toast.success('สั่งซื้อสำเร็จ!');
-      router.push('/checkout/success');
+      // Pass QR base64 from API response if available
+      const apiResponse = order as any;
+      const qrBase64 = apiResponse.payment?.promptpayQrBase64;
+      const params = new URLSearchParams({ orderId: order.id });
+      if (qrBase64) params.set('qr', qrBase64);
+      router.push(`/checkout/success?${params.toString()}`);
     } catch (err: any) {
       toast.error(err?.message || 'สั่งซื้อไม่สำเร็จ กรุณาลองใหม่');
     } finally {

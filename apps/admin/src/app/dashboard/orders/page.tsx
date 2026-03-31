@@ -88,13 +88,21 @@ export default function OrdersPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="จัดการออเดอร์" description="ออเดอร์ทั้งหมดในระบบ">
-        <button
-          onClick={() => mutate()}
-          className="inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors hover:bg-muted"
-        >
-          <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
-          รีเฟรช
-        </button>
+        <div className="flex gap-2">
+          <Link
+            href="/dashboard/orders/pending-slips"
+            className="inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors hover:bg-muted"
+          >
+            ตรวจสลิป
+          </Link>
+          <button
+            onClick={() => mutate()}
+            className="inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors hover:bg-muted"
+          >
+            <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
+            รีเฟรช
+          </button>
+        </div>
       </PageHeader>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

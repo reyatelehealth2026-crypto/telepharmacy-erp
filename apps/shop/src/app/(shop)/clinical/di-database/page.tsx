@@ -13,11 +13,15 @@ import {
   ChevronDown,
   ChevronUp,
   Heart,
+  Loader2,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { useAuthGuard } from '@/lib/use-auth-guard';
+import { lookupDrug } from '@/lib/drug-info';
 
 interface DrugInfo {
+  id?: string;
   name: string;
   genericName: string;
   classification: string;
@@ -30,59 +34,36 @@ interface DrugInfo {
   pregnancyCategory: string;
 }
 
-const MOCK_DRUGS: DrugInfo[] = [
-  {
-    name: 'Metformin 500mg',
-    genericName: 'Metformin Hydrochloride',
-    classification: 'Antidiabetic (Biguanide)',
-    indications: ['เบาหวานชนิดที่ 2', 'ป้องกันเบาหวานในผู้ป่วย prediabetes'],
-    dosage: 'เริ่มต้น 500mg 2 ครั้ง/วัน หลังอาหาร เพิ่มเป็น 1000mg 2 ครั้ง/วัน',
-    sideEffects: ['คลื่นไส้', 'ท้องเสีย', 'กลิ่นปากเหมือนโลหะ', 'วิงเวียนหัวใจเต้นเร็ว (lactic acidosis - หายาก)'],
-    contraindications: ['โรคไตขั้นรุนแรง', 'โรคตับรุนแรง', 'lactic acidosis', 'การฉีดสารทึบรังสี'],
-    warnings: ['หยุดยาก่อนผ่าตัด 48 ชม.', 'เฝ้าระวังระดับ B12', 'ระวัง hypoglycemia ร่วมกับยาอื่น'],
-    interactions: ['ยาขับปัสสาวะ', 'สเตียรอยด์', 'beta-blocker (ปกปิดอาการ hypoglycemia)'],
-    pregnancyCategory: 'B',
-  },
-  {
-    name: 'Amlodipine 5mg',
-    genericName: 'Amlodipine Besylate',
-    classification: 'Calcium Channel Blocker',
-    indications: ['ความดันโลหิตสูง', 'อาการเจ็บหน้าอก (angina)'],
-    dosage: '5-10mg วันละครั้ง',
-    sideEffects: ['บวมที่เท้า', 'ใจสั่น', 'ปวดศีรษะ', 'คลื่นไส้'],
-    contraindications: ['shock cardiogenic', 'หัวใจล้มเหลวรุนแรง'],
-    warnings: ['เริ่มยาช้าในผู้สูงอายุ', 'เฝ้าระวัง angioedema'],
-    interactions: ['Simvastatin (จำกัดขนาด ≤20mg)', 'CYP3A4 inhibitors'],
-    pregnancyCategory: 'C',
-  },
-];
-
 function DIDatabasePageInner() {
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get('q') || '';
+  const { token, loading: authLoading } = useAuthGuard();
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<DrugInfo[]>([]);
   const [selectedDrug, setSelectedDrug] = useState<DrugInfo | null>(null);
   const [expandedSections, setExpandedSections] = useState<string[]>(['indications']);
+  const [searching, setSearching] = useState(false);
 
   useEffect(() => {
-    if (initialQuery) {
+    if (initialQuery && token) {
       handleSearch();
     }
-  }, [initialQuery]);
+  }, [initialQuery, token]);
 
-  const handleSearch = () => {
-    if (!query.trim()) {
+  const handleSearch = async () => {
+    if (!query.trim() || !token) {
       setResults([]);
       return;
     }
-    // Mock search
-    const filtered = MOCK_DRUGS.filter(
-      (d) =>
-        d.name.toLowerCase().includes(query.toLowerCase()) ||
-        d.genericName.toLowerCase().includes(query.toLowerCase())
-    );
-    setResults(filtered);
+    setSearching(true);
+    try {
+      const res = await lookupDrug(token, query);
+      setResults(res.drugs);
+    } catch {
+      setResults([]);
+    } finally {
+      setSearching(false);
+    }
     setSelectedDrug(null);
   };
 
@@ -115,15 +96,24 @@ function DIDatabasePageInner() {
           <button
             onClick={handleSearch}
             className="rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground"
+            disabled={searching}
           >
-            ค้นหา
+            {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : 'ค้นหา'}
           </button>
         </div>
       </div>
 
       <div className="px-4 py-4 space-y-4">
+        {/* Loading */}
+        {(authLoading || searching) && (
+          <div className="flex flex-col items-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="mt-2 text-sm text-muted-foreground">กำลังค้นหา...</p>
+          </div>
+        )}
+
         {/* Results */}
-        {!selectedDrug && results.length > 0 && (
+        {!selectedDrug && !searching && results.length > 0 && (
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground">ผลการค้นหา ({results.length})</p>
             {results.map((drug) => (
@@ -146,7 +136,7 @@ function DIDatabasePageInner() {
         )}
 
         {/* Empty State */}
-        {!selectedDrug && results.length === 0 && query && (
+        {!selectedDrug && !searching && results.length === 0 && query && (
           <div className="text-center py-8">
             <Search className="mx-auto h-8 w-8 text-muted-foreground/30" />
             <p className="mt-2 text-sm text-muted-foreground">ไม่พบข้อมูล</p>

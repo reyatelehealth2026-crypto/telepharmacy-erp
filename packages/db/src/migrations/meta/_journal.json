@@ -15,6 +15,13 @@
       "when": 1774912895800,
       "tag": "0001_worthless_tyger_tiger",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1774937052651,
+      "tag": "0002_steep_purple_man",
+      "breakpoints": true
     }
   ]
 }

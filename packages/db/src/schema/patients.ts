@@ -138,3 +138,28 @@ export const patientMedications = pgTable("patient_medications", {
     .notNull()
     .defaultNow(),
 });
+
+export const patientAddresses = pgTable("patient_addresses", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  patientId: uuid("patient_id")
+    .notNull()
+    .references(() => patients.id, { onDelete: "cascade" }),
+  label: varchar("label", { length: 50 }).default("บ้าน"),
+  recipientName: varchar("recipient_name", { length: 255 }).notNull(),
+  phone: varchar("phone", { length: 20 }).notNull(),
+  address: text("address").notNull(),
+  subDistrict: varchar("sub_district", { length: 100 }),
+  district: varchar("district", { length: 100 }),
+  province: varchar("province", { length: 100 }).notNull(),
+  postalCode: varchar("postal_code", { length: 10 }),
+  notes: text("notes"),
+  isDefault: boolean("is_default").default(false).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+}, (t) => [
+  index("patient_addresses_patient_id_idx").on(t.patientId),
+]);

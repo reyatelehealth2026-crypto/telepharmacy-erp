@@ -10,6 +10,7 @@ import {
   patientAllergies,
   patientChronicDiseases,
   patientMedications,
+  patientAddresses,
 } from '@telepharmacy/db';
 import { DRIZZLE } from '../../database/database.constants';
 import type { UpdatePatientDto } from './dto/update-patient.dto';
@@ -472,6 +473,97 @@ export class PatientService {
     dto: UpdatePatientDto,
   ) {
     return this.updateProfile(patientId, dto);
+  }
+
+  // ─── Addresses ──────────────────────────────────────────────
+
+  async getAddresses(patientId: string) {
+    await this.ensurePatientExists(patientId);
+    return this.db
+      .select()
+      .from(patientAddresses)
+      .where(eq(patientAddresses.patientId, patientId))
+      .orderBy(desc(patientAddresses.isDefault), desc(patientAddresses.createdAt));
+  }
+
+  async createAddress(patientId: string, dto: {
+    label?: string; recipientName: string; phone: string; address: string;
+    subDistrict?: string; district?: string; province: string; postalCode?: string;
+    notes?: string; isDefault?: boolean;
+  }) {
+    await this.ensurePatientExists(patientId);
+
+    // If setting as default, unset others
+    if (dto.isDefault) {
+      await this.db
+        .update(patientAddresses)
+        .set({ isDefault: false })
+        .where(eq(patientAddresses.patientId, patientId));
+    }
+
+    // If first address, make it default
+    const existing = await this.db
+      .select({ id: patientAddresses.id })
+      .from(patientAddresses)
+      .where(eq(patientAddresses.patientId, patientId))
+      .limit(1);
+
+    const [addr] = await this.db
+      .insert(patientAddresses)
+      .values({
+        patientId,
+        ...dto,
+        isDefault: dto.isDefault || existing.length === 0,
+      })
+      .returning();
+
+    return addr;
+  }
+
+  async updateAddress(patientId: string, addressId: string, dto: Partial<{
+    label: string; recipientName: string; phone: string; address: string;
+    subDistrict: string; district: string; province: string; postalCode: string;
+    notes: string; isDefault: boolean;
+  }>) {
+    if (dto.isDefault) {
+      await this.db
+        .update(patientAddresses)
+        .set({ isDefault: false })
+        .where(eq(patientAddresses.patientId, patientId));
+    }
+
+    const [updated] = await this.db
+      .update(patientAddresses)
+      .set({ ...dto, updatedAt: new Date() })
+      .where(and(eq(patientAddresses.id, addressId), eq(patientAddresses.patientId, patientId)))
+      .returning();
+
+    if (!updated) throw new NotFoundException('ไม่พบที่อยู่');
+    return updated;
+  }
+
+  async deleteAddress(patientId: string, addressId: string) {
+    const [deleted] = await this.db
+      .delete(patientAddresses)
+      .where(and(eq(patientAddresses.id, addressId), eq(patientAddresses.patientId, patientId)))
+      .returning();
+
+    if (!deleted) throw new NotFoundException('ไม่พบที่อยู่');
+
+    // If deleted was default, set first remaining as default
+    if (deleted.isDefault) {
+      const remaining = await this.db
+        .select({ id: patientAddresses.id })
+        .from(patientAddresses)
+        .where(eq(patientAddresses.patientId, patientId))
+        .limit(1);
+      if (remaining.length > 0) {
+        await this.db
+          .update(patientAddresses)
+          .set({ isDefault: true })
+          .where(eq(patientAddresses.id, remaining[0].id));
+      }
+    }
   }
 
   // ─── Helpers ────────────────────────────────────────────────
