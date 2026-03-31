@@ -1,6 +1,6 @@
 import { registerAs } from '@nestjs/config';
 
-export default registerAs('telemedicine', () => ({
+export const telemedicineConfig = registerAs('telemedicine', () => ({
   // Agora.io Video Platform
   agora: {
     appId: process.env.AGORA_APP_ID || '',
