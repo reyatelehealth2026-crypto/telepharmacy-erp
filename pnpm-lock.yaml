@@ -151,7 +151,7 @@ importers:
         specifier: ^4
         version: 4.3.19(react@19.2.4)(zod@3.25.76)
       axios:
-        specifier: 1.14.0
+        specifier: ^1.14.0
         version: 1.14.0
       bcryptjs:
         specifier: ^2
@@ -4689,9 +4689,6 @@ packages:
     resolution: {integrity: sha512-HRDzbaKjC+AOWVXxAU/x54COGeIv9eb+6CkDSQoNTt4XyWoIJvuPsXizxu/Fr23EiekbtZwmh1IcIG/l/a10GQ==}
     engines: {node: '>=8'}
 
-  plain-crypto-js@4.2.1:
-    resolution: {integrity: sha512-Wv41p4/aEMq03JjDqi0JxPYT4aoMbbQMSM8ur4QkjvjGEeuYvI7rGkqLcOZ7K1iThQGvpNvJnxRWcNodCNuEEQ==}
-
   pluralize@8.0.0:
     resolution: {integrity: sha512-Nc3IT5yHzflTfbjgqWcCPpo7DaKy4FnpB0l/zCAW0Tc7jxAiuqSxHasntB3D7887LSrA93kDJ9IXovxJYxyLCA==}
     engines: {node: '>=4'}
@@ -8096,9 +8093,7 @@ snapshots:
     transitivePeerDependencies:
       - debug
 
-  b4a@1.8.0:
-    dependencies:
-      bare-events: 2.8.2
+  b4a@1.8.0: {}
 
   babel-jest@29.7.0(@babel/core@7.29.0):
     dependencies:
@@ -10081,8 +10076,6 @@ snapshots:
   pkg-dir@4.2.0:
     dependencies:
       find-up: 4.1.0
-
-  plain-crypto-js@4.2.1: {}
 
   pluralize@8.0.0: {}
 
