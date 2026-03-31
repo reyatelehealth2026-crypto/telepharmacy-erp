@@ -27,6 +27,6 @@ import { DatabaseModule } from '../../../database/database.module';
     MinioStorageService,
     RedisKycService,
   ],
-  exports: [KycService],
+  exports: [KycService, MinioStorageService, SmsService],
 })
 export class KycModule {}

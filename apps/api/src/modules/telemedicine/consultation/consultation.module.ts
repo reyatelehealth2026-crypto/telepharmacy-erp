@@ -5,7 +5,7 @@ import { ConsultationService } from './consultation.service';
 import { AgoraService } from './agora.service';
 import { ScopeModule } from '../scope/scope.module';
 import { ConsentModule } from '../consent/consent.module';
-import { AuditModule } from '../audit/audit.module';
+import { TelemedicineAuditModule } from '../audit/audit.module';
 import { DatabaseModule } from '../../../database/database.module';
 
 @Module({
@@ -14,7 +14,7 @@ import { DatabaseModule } from '../../../database/database.module';
     DatabaseModule,
     ScopeModule,
     ConsentModule,
-    AuditModule,
+    TelemedicineAuditModule,
   ],
   controllers: [ConsultationController],
   providers: [ConsultationService, AgoraService],

@@ -9,7 +9,7 @@ import { DRIZZLE } from '../../../database/database.constants';
 import * as schema from '@telepharmacy/db';
 import { eq, and, desc, inArray } from 'drizzle-orm';
 import { TelemedicineAuditService } from '../audit/audit.service';
-import { MinioService } from '../kyc/minio.service';
+import { MinioStorageService } from '../kyc/minio.service';
 import { SmsService } from '../kyc/sms.service';
 import * as PDFDocument from 'pdfkit';
 import { Readable } from 'stream';
@@ -55,7 +55,7 @@ export class ReferralService {
     @Inject(DRIZZLE) private db: any,
     private readonly config: ConfigService,
     private readonly auditService: TelemedicineAuditService,
-    private readonly minioService: MinioService,
+    private readonly minioService: MinioStorageService,
     private readonly smsService: SmsService,
   ) {}
 

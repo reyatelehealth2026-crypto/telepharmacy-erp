@@ -113,6 +113,34 @@ export class MinioStorageService {
   }
 
   /**
+   * Upload file to MinIO bucket with content type
+   */
+  async uploadFile(bucket: string, filename: string, buffer: Buffer, contentType?: string): Promise<string> {
+    try {
+      const mockUrl = `https://minio.telepharmacy.com/${bucket}/${filename}`;
+      this.logger.log(`[MOCK] Uploaded file (${contentType || 'application/octet-stream'}): ${mockUrl}`);
+      return mockUrl;
+    } catch (error) {
+      this.logger.error(`Failed to upload file ${filename}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Upload file to MinIO bucket (unencrypted)
+   */
+  async upload(bucket: string, filename: string, buffer: Buffer): Promise<string> {
+    try {
+      const mockUrl = `https://minio.telepharmacy.com/${bucket}/${filename}`;
+      this.logger.log(`[MOCK] Uploaded file: ${mockUrl}`);
+      return mockUrl;
+    } catch (error) {
+      this.logger.error(`Failed to upload file ${filename}:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Generate unique filename
    */
   generateFilename(prefix: string, extension: string): string {

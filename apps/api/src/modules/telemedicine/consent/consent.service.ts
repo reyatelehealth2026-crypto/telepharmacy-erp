@@ -2,10 +2,7 @@ import { Injectable, Inject, NotFoundException, BadRequestException } from '@nes
 import { ConfigService } from '@nestjs/config';
 import { eq, and, desc, isNull } from 'drizzle-orm';
 import { DRIZZLE } from '../../../database/database.constants';
-import {
-  consentTemplates,
-  patientConsents,
-} from '@telepharmacy/db/schema/telemedicine';
+import { consentTemplates, patientConsents } from '@telepharmacy/db/schema';
 import {
   AcceptConsentDto,
   WithdrawConsentDto,
@@ -15,14 +12,14 @@ import {
   ConsentAcceptanceResult,
   ConsentStatusDto,
 } from './dto/consent.dto';
-import { MinioService } from '../kyc/minio.service';
+import { MinioStorageService } from '../kyc/minio.service';
 import { PdfService } from './pdf.service';
 
 @Injectable()
 export class EConsentService {
   constructor(
     @Inject(DRIZZLE) private readonly db: any,
-    private readonly minioService: MinioService,
+    private readonly minioService: MinioStorageService,
     private readonly pdfService: PdfService,
     private readonly config: ConfigService,
   ) {}

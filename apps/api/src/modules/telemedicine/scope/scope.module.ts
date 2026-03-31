@@ -4,12 +4,12 @@ import { ScopeController } from './scope.controller';
 import { ScopeValidatorService } from './scope-validator.service';
 import { ScopeRulesService } from './scope-rules.service';
 import { DatabaseModule } from '../../../database/database.module';
-import { TelemedicineAuditService } from '../audit/audit.service';
+import { TelemedicineAuditModule } from '../audit/audit.module';
 
 @Module({
-  imports: [ConfigModule, DatabaseModule],
+  imports: [ConfigModule, DatabaseModule, TelemedicineAuditModule],
   controllers: [ScopeController],
-  providers: [ScopeValidatorService, ScopeRulesService, TelemedicineAuditService],
+  providers: [ScopeValidatorService, ScopeRulesService],
   exports: [ScopeValidatorService, ScopeRulesService],
 })
 export class ScopeModule {}
