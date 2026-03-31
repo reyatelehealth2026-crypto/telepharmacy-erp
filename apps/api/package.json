@@ -14,6 +14,7 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
+    "@ai-sdk/google": "^1",
     "@anatine/zod-nestjs": "^2",
     "@nestjs/bull": "^11.0.4",
     "@nestjs/common": "^11.1",
@@ -29,7 +30,7 @@
     "@telepharmacy/ai": "workspace:*",
     "@telepharmacy/db": "workspace:*",
     "@telepharmacy/shared": "workspace:*",
-    "@ai-sdk/google": "^1",
+    "@types/pdfkit": "^0.17.5",
     "ai": "^4",
     "bcryptjs": "^2",
     "bull": "^4.16.5",
@@ -43,6 +44,7 @@
     "passport": "^0.7",
     "passport-jwt": "^4",
     "passport-local": "^1",
+    "pdfkit": "^0.18.0",
     "postgres": "^3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7",

@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { BullModule } from '@nestjs/bull';
-import { appConfig, databaseConfig, jwtConfig, lineConfig, meilisearchConfig, odooConfig } from './config';
+import { appConfig, databaseConfig, jwtConfig, lineConfig, meilisearchConfig, odooConfig, telemedicineConfig } from './config';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -22,12 +22,13 @@ import { AdherenceModule } from './modules/adherence/adherence.module';
 import { DrugInfoModule } from './modules/drug-info/drug-info.module';
 import { ComplianceModule } from './modules/compliance/compliance.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { TelemedicineModule } from './modules/telemedicine/telemedicine.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig, jwtConfig, lineConfig, meilisearchConfig, odooConfig],
+      load: [appConfig, databaseConfig, jwtConfig, lineConfig, meilisearchConfig, odooConfig, telemedicineConfig],
     }),
     ThrottlerModule.forRoot({
       throttlers: [{ ttl: 60_000, limit: 60 }],
@@ -54,6 +55,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     DrugInfoModule,
     ComplianceModule,
     NotificationsModule,
+    TelemedicineModule,
   ],
 })
 export class AppModule {}

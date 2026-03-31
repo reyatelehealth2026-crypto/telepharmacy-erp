@@ -20,63 +20,63 @@ This implementation plan breaks down the Telemedicine 2569 Legal Compliance feat
 
 ## Tasks
 
-- [-] 1. Database Schema Setup & Core Infrastructure
+- [x] 1. Database Schema Setup & Core Infrastructure
   - Create Drizzle ORM schemas for all telemedicine tables
   - Generate and run database migrations
   - Set up MinIO buckets for video/document storage
   - Configure Redis for session management
   - _Requirements: 1.1, 1.10, 2.3, 6.6, 6.9, 8.1, 8.2_
 
-- [~] 2. Implement KYC & Identity Verification Module
-  - [ ] 2.1 Create KYC database schema and migrations
+- [x] 2. Implement KYC & Identity Verification Module
+  - [x] 2.1 Create KYC database schema and migrations
     - Define `kyc_verifications` table with Drizzle ORM
     - Include fields for document verification, liveness detection, face comparison, OTP/email verification
     - Add indexes for performance optimization
     - _Requirements: 1.1, 1.10, 1.11_
 
 
-  - [ ] 2.2 Implement KYC service for document upload and OCR extraction
+  - [x] 2.2 Implement KYC service for document upload and OCR extraction
     - Create `KycService` with document encryption and MinIO upload
     - Integrate Gemini Vision API for Thai ID card OCR
     - Implement Thai national ID checksum validation (MOD 11 algorithm)
     - Extract structured data: nationalId, names, DOB, address, dates
     - _Requirements: 1.1, 1.2, 1.11_
 
-  - [ ] 2.3 Implement liveness detection with AWS Rekognition
+  - [x] 2.3 Implement liveness detection with AWS Rekognition
     - Create service method for video upload and liveness check
     - Call AWS Rekognition DetectFaces with liveness detection
     - Validate random gesture performance (turn left, smile, blink)
     - Store liveness score and results in database
     - _Requirements: 1.3, 1.4_
 
-  - [ ] 2.4 Implement face comparison verification
+  - [x] 2.4 Implement face comparison verification
     - Create service method for selfie upload
     - Call AWS Rekognition CompareFaces API
     - Compare selfie against ID document photo
     - Flag for manual review if confidence < 90%
     - _Requirements: 1.5, 1.6_
 
-  - [ ] 2.5 Implement OTP verification via ThaiSMS
+  - [x] 2.5 Implement OTP verification via ThaiSMS
     - Generate 6-digit OTP codes
     - Store OTP in Redis with 5-minute expiry
     - Integrate ThaiSMS API for SMS delivery
     - Validate OTP with max 3 attempts
     - _Requirements: 1.7_
 
-  - [ ] 2.6 Implement email verification system
+  - [x] 2.6 Implement email verification system
     - Generate JWT tokens for email verification (24-hour expiry)
     - Send verification emails via AWS SES
     - Create verification endpoint to validate tokens
     - Mark patient as telemedicine-enabled upon completion
     - _Requirements: 1.8, 1.12_
 
-  - [ ] 2.7 Implement guardian consent for minors
+  - [x] 2.7 Implement guardian consent for minors
     - Check patient age and require guardian consent if under 20
     - Link guardian KYC verification to patient record
     - Validate guardian relationship documentation
     - _Requirements: 1.9_
 
-  - [ ] 2.8 Create KYC REST API endpoints
+  - [x] 2.8 Create KYC REST API endpoints
     - POST /v1/telemedicine/kyc/upload-document
     - POST /v1/telemedicine/kyc/liveness-check
     - POST /v1/telemedicine/kyc/face-compare
@@ -95,7 +95,7 @@ This implementation plan breaks down the Telemedicine 2569 Legal Compliance feat
     - Test face comparison confidence thresholds
     - _Requirements: 1.2, 1.5, 1.7, 1.11_
 
-- [~] 3. Implement Medical-Grade Audit Trail System
+- [-] 3. Implement Medical-Grade Audit Trail System
   - [ ] 3.1 Create audit log database schema
     - Define `telemedicine_audit_log` table with append-only constraints
     - Implement hash chain fields (previousHash, currentHash)

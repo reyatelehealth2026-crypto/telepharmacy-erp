@@ -8,6 +8,13 @@
       "when": 1774871223460,
       "tag": "0000_steep_mephisto",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1774912895800,
+      "tag": "0001_worthless_tyger_tiger",
+      "breakpoints": true
     }
   ]
 }

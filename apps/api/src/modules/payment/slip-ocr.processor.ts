@@ -2,7 +2,7 @@ import { Process, Processor } from '@nestjs/bull';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bull';
 import { extractSlip } from '@telepharmacy/ai';
-import { PaymentService } from '../payment.service';
+import { PaymentService } from './payment.service';
 
 export const SLIP_OCR_QUEUE = 'slip-ocr-queue';
 export const PROCESS_SLIP_OCR_JOB = 'process-slip-ocr';
