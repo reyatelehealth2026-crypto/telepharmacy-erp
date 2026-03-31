@@ -168,7 +168,7 @@ export class ReportsService {
         total: sql<number>`count(*)::int`,
         verified: sql<number>`count(*) filter (where ${prescriptions.verifiedAt} is not null)::int`,
         avgVerifyMinutes: sql<string>`coalesce(
-          round(avg(extract(epoch from (${prescriptions.verifiedAt} - ${prescriptions.createdAt})) / 60) filter (where ${prescriptions.verifiedAt} is not null), 1),
+          round(avg(extract(epoch from (verified_at - created_at)) / 60) filter (where verified_at is not null), 1),
           0
         )`,
       })
@@ -210,7 +210,7 @@ export class ReportsService {
     const rows = await this.db.execute(sql`
       SELECT
         p.id AS product_id,
-        p.name AS product_name,
+        COALESCE(p.name_th, p.name_en) AS product_name,
         p.sku,
         p.stock_qty,
         p.reorder_level,
@@ -238,7 +238,7 @@ export class ReportsService {
       SELECT
         il.id AS lot_id,
         il.lot_no,
-        p.name AS product_name,
+        COALESCE(p.name_th, p.name_en) AS product_name,
         p.sku,
         il.quantity_remaining,
         il.expiry_date,
