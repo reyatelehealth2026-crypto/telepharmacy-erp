@@ -102,12 +102,14 @@ export default function InboxPage() {
                     {s.patientFirstName} {s.patientLastName}
                   </span>
                   <span className="text-[10px] text-muted-foreground">
-                    {s.updatedAt ? new Date(s.updatedAt).toLocaleString('th-TH', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      day: '2-digit',
-                      month: 'short',
-                    }) : ''}
+                    {s.updatedAt && !isNaN(new Date(s.updatedAt).getTime()) 
+                      ? new Date(s.updatedAt).toLocaleString('th-TH', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          day: '2-digit',
+                          month: 'short',
+                        })
+                      : '-'}
                   </span>
                 </div>
                 {s.lastMessage && (
