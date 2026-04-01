@@ -11,6 +11,7 @@ import {
   patientChronicDiseases,
   patientMedications,
   patientAddresses,
+  loyaltyAccounts,
 } from '@telepharmacy/db';
 import { DRIZZLE } from '../../database/database.constants';
 import type { UpdatePatientDto } from './dto/update-patient.dto';
@@ -40,7 +41,7 @@ export class PatientService {
       throw new NotFoundException('ไม่พบข้อมูลผู้ป่วย');
     }
 
-    const [allergies, chronicDiseases, medications] = await Promise.all([
+    const [allergies, chronicDiseases, medications, loyaltyRow] = await Promise.all([
       this.db
         .select()
         .from(patientAllergies)
@@ -61,11 +62,20 @@ export class PatientService {
           ),
         )
         .orderBy(desc(patientMedications.createdAt)),
+      this.db
+        .select()
+        .from(loyaltyAccounts)
+        .where(eq(loyaltyAccounts.patientId, patientId))
+        .limit(1),
     ]);
+
+    const loyalty = loyaltyRow[0] ?? null;
 
     return {
       ...patient,
       age: patient.birthDate ? this.calculateAge(patient.birthDate) : null,
+      loyaltyPoints: loyalty ? loyalty.currentPoints : 0,
+      loyaltyTier: loyalty ? loyalty.tier : 'bronze',
       allergies,
       chronicDiseases,
       currentMedications: medications,
