@@ -67,7 +67,7 @@ export default function RxUploadPage() {
         setUploadProgress((p) => Math.min(p + 10, 90));
       }, 200);
 
-      const rx = await uploadPrescription(accessToken, files, notes);
+      const rx = await uploadPrescription(accessToken ?? '', files, notes);
 
       clearInterval(progressInterval);
       setUploadProgress(100);
