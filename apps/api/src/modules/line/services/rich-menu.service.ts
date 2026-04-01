@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { DynamicConfigService } from '../../health/dynamic-config.service';
 
 const LINE_API_BASE = 'https://api.line.me/v2/bot';
 
@@ -22,10 +22,11 @@ interface RichMenuObject {
 @Injectable()
 export class RichMenuService {
   private readonly logger = new Logger(RichMenuService.name);
-  private readonly accessToken: string;
 
-  constructor(private readonly config: ConfigService) {
-    this.accessToken = this.config.getOrThrow<string>('line.channelAccessToken');
+  constructor(private readonly dynamicConfig: DynamicConfigService) {}
+
+  private async getAccessToken(): Promise<string> {
+    return this.dynamicConfig.resolve('line.channelAccessToken', 'LINE_CHANNEL_ACCESS_TOKEN');
   }
 
   /**
@@ -87,12 +88,13 @@ export class RichMenuService {
     this.logger.log(`Rich menu created: ${richMenuId}`);
 
     // 2) Upload image
+    const accessToken = await this.getAccessToken();
     const uploadRes = await fetch(
       `https://api-data.line.me/v2/bot/richmenu/${richMenuId}/content`,
       {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${this.accessToken}`,
+          Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'image/png',
         },
         body: imageBuffer,
@@ -109,7 +111,7 @@ export class RichMenuService {
       `${LINE_API_BASE}/user/all/richmenu/${richMenuId}`,
       {
         method: 'POST',
-        headers: { Authorization: `Bearer ${this.accessToken}` },
+        headers: { Authorization: `Bearer ${accessToken}` },
       },
     );
     if (!defaultRes.ok) {
@@ -124,11 +126,12 @@ export class RichMenuService {
    * Link a rich menu to a specific user.
    */
   async linkToUser(userId: string, richMenuId: string): Promise<void> {
+    const accessToken = await this.getAccessToken();
     const res = await fetch(
       `${LINE_API_BASE}/user/${userId}/richmenu/${richMenuId}`,
       {
         method: 'POST',
-        headers: { Authorization: `Bearer ${this.accessToken}` },
+        headers: { Authorization: `Bearer ${accessToken}` },
       },
     );
     if (!res.ok) {
@@ -155,9 +158,10 @@ export class RichMenuService {
    * Unlink rich menu from a user (revert to default).
    */
   async unlinkFromUser(userId: string): Promise<void> {
+    const accessToken = await this.getAccessToken();
     const res = await fetch(`${LINE_API_BASE}/user/${userId}/richmenu`, {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${this.accessToken}` },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
     if (!res.ok) {
       const body = await res.text();
@@ -169,8 +173,9 @@ export class RichMenuService {
    * List all rich menus on the channel.
    */
   async listAll(): Promise<any[]> {
+    const accessToken = await this.getAccessToken();
     const res = await fetch(`${LINE_API_BASE}/richmenu/list`, {
-      headers: { Authorization: `Bearer ${this.accessToken}` },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
     if (!res.ok) return [];
     const data = (await res.json()) as { richmenus: any[] };
@@ -181,18 +186,20 @@ export class RichMenuService {
    * Delete a rich menu.
    */
   async deleteMenu(richMenuId: string): Promise<void> {
+    const accessToken = await this.getAccessToken();
     await fetch(`${LINE_API_BASE}/richmenu/${richMenuId}`, {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${this.accessToken}` },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
   }
 
   private async request(path: string, body: unknown): Promise<Response> {
+    const accessToken = await this.getAccessToken();
     return fetch(`${LINE_API_BASE}${path}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify(body),
     });

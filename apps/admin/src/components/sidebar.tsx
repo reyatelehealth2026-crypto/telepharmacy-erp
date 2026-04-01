@@ -4,7 +4,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth-context';
+import { useSocket } from '@/lib/socket-context';
 import type { UserRole } from '@telepharmacy/shared';
+import type { RealtimeCounts } from '@/lib/socket-context';
 import {
   LayoutDashboard,
   ClipboardList,
@@ -19,8 +21,12 @@ import {
   AlertTriangle,
   Stethoscope,
   MessageSquare,
+  MessageSquareWarning,
+  Inbox,
   Video,
   Shield,
+  Tag,
+  FileText,
 } from 'lucide-react';
 
 const navigation: {
@@ -28,17 +34,22 @@ const navigation: {
   href: string;
   icon: typeof LayoutDashboard;
   roles?: UserRole[];
+  badgeKey?: keyof RealtimeCounts;
 }[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'คิวใบสั่งยา', href: '/dashboard/pharmacist', icon: ClipboardList, roles: ['pharmacist', 'super_admin', 'pharmacist_tech'] },
-  { name: 'ออเดอร์', href: '/dashboard/orders', icon: ShoppingCart },
+  { name: 'คิวใบสั่งยา', href: '/dashboard/pharmacist', icon: ClipboardList, roles: ['pharmacist', 'super_admin', 'pharmacist_tech'], badgeKey: 'prescriptions' },
+  { name: 'ออเดอร์', href: '/dashboard/orders', icon: ShoppingCart, badgeKey: 'orders' },
   { name: 'ผู้ป่วย', href: '/dashboard/patients', icon: Users, roles: ['pharmacist', 'super_admin', 'pharmacist_tech', 'customer_service'] },
   { name: 'สินค้า', href: '/dashboard/products', icon: Pill },
+  { name: 'โปรโมชั่น', href: '/dashboard/promotions', icon: Tag, roles: ['pharmacist', 'super_admin'] },
+  { name: 'บทความ', href: '/dashboard/content', icon: FileText, roles: ['pharmacist', 'super_admin'] },
+  { name: 'ข้อร้องเรียน', href: '/dashboard/complaints', icon: MessageSquareWarning, roles: ['pharmacist', 'super_admin', 'customer_service'], badgeKey: 'complaints' },
   { name: 'คลังสินค้า', href: '/dashboard/inventory', icon: Warehouse, roles: ['pharmacist', 'super_admin', 'pharmacist_tech'] },
   { name: 'ADR Reports', href: '/dashboard/adr', icon: AlertTriangle, roles: ['pharmacist', 'super_admin', 'pharmacist_tech'] },
   { name: 'Clinical', href: '/dashboard/clinical', icon: Stethoscope, roles: ['pharmacist', 'super_admin', 'pharmacist_tech'] },
   { name: 'Telemedicine', href: '/dashboard/telemedicine', icon: Video, roles: ['pharmacist', 'super_admin'] },
   { name: 'KYC Review', href: '/dashboard/kyc', icon: Shield, roles: ['pharmacist', 'super_admin'] },
+  { name: 'กล่องข้อความ', href: '/dashboard/inbox', icon: Inbox, roles: ['pharmacist', 'super_admin', 'customer_service'], badgeKey: 'chat' },
   { name: 'LINE Messaging', href: '/dashboard/messaging', icon: MessageSquare, roles: ['pharmacist', 'super_admin'] },
   { name: 'รายงาน', href: '/dashboard/reports', icon: BarChart3, roles: ['pharmacist', 'super_admin', 'accounting'] },
   { name: 'ตั้งค่า', href: '/dashboard/settings', icon: Settings, roles: ['super_admin'] },
@@ -47,6 +58,16 @@ const navigation: {
 export function Sidebar() {
   const pathname = usePathname();
   const { user, logout, hasRole } = useAuth();
+
+  let counts: RealtimeCounts = { prescriptions: 0, orders: 0, chat: 0, complaints: 0 };
+  let resetCount: ((key: keyof RealtimeCounts) => void) | undefined;
+  try {
+    const socket = useSocket();
+    counts = socket.counts;
+    resetCount = socket.resetCount;
+  } catch {
+    // SocketProvider not available (e.g. outside dashboard layout)
+  }
 
   const visibleNav = navigation.filter(
     (item) => !item.roles || item.roles.some((r) => hasRole(r)),
@@ -70,10 +91,15 @@ export function Sidebar() {
             pathname === item.href ||
             (item.href !== '/dashboard' && pathname.startsWith(item.href));
 
+          const badgeCount = item.badgeKey ? counts[item.badgeKey] : 0;
+
           return (
             <Link
               key={item.name}
               href={item.href}
+              onClick={() => {
+                if (item.badgeKey && resetCount) resetCount(item.badgeKey);
+              }}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                 isActive
@@ -82,7 +108,12 @@ export function Sidebar() {
               )}
             >
               <item.icon className="h-4 w-4 shrink-0" />
-              {item.name}
+              <span className="flex-1">{item.name}</span>
+              {badgeCount > 0 && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
+                  {badgeCount > 99 ? '99+' : badgeCount}
+                </span>
+              )}
             </Link>
           );
         })}

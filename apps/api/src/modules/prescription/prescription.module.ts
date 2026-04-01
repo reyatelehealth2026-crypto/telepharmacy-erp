@@ -7,12 +7,16 @@ import { PrescriptionOcrProcessor } from './prescription-ocr.processor';
 import { PrescriptionSignatureService } from './prescription-signature.service';
 import { DrugSafetyModule } from '../drug-safety/drug-safety.module';
 import { DatabaseModule } from '../../database/database.module';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { EventsModule } from '../events/events.module';
 
 @Module({
   imports: [
     DatabaseModule,
     DrugSafetyModule,
     BullModule.registerQueue({ name: OCR_QUEUE }),
+    NotificationsModule,
+    EventsModule,
   ],
   providers: [PrescriptionService, PrescriptionOcrService, PrescriptionOcrProcessor, PrescriptionSignatureService],
   controllers: [PrescriptionController, PatientPrescriptionController],

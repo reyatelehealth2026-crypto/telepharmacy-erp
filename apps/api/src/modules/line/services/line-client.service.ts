@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { DynamicConfigService } from '../../health/dynamic-config.service';
 import type {
   LineMessageObject,
   LineProfile,
@@ -13,11 +13,13 @@ const LINE_DATA_API_BASE = 'https://api-data.line.me/v2/bot';
 @Injectable()
 export class LineClientService {
   private readonly logger = new Logger(LineClientService.name);
-  private readonly accessToken: string;
 
-  constructor(private readonly config: ConfigService) {
-    this.accessToken = this.config.getOrThrow<string>(
+  constructor(private readonly dynamicConfig: DynamicConfigService) {}
+
+  private async getAccessToken(): Promise<string> {
+    return this.dynamicConfig.resolve(
       'line.channelAccessToken',
+      'LINE_CHANNEL_ACCESS_TOKEN',
     );
   }
 
@@ -26,7 +28,6 @@ export class LineClientService {
     messages: LineMessageObject[],
   ): Promise<void> {
     const payload: LineReplyMessagePayload = { replyToken, messages };
-
     const res = await this.request('/message/reply', payload);
     if (!res.ok) {
       const body = await res.text();
@@ -36,7 +37,6 @@ export class LineClientService {
 
   async pushMessage(to: string, messages: LineMessageObject[]): Promise<void> {
     const payload: LineSendMessagePayload = { to, messages };
-
     const res = await this.request('/message/push', payload);
     if (!res.ok) {
       const body = await res.text();
@@ -45,8 +45,9 @@ export class LineClientService {
   }
 
   async getProfile(userId: string): Promise<LineProfile> {
+    const accessToken = await this.getAccessToken();
     const res = await fetch(`${LINE_API_BASE}/profile/${userId}`, {
-      headers: { Authorization: `Bearer ${this.accessToken}` },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
 
     if (!res.ok) {
@@ -59,9 +60,10 @@ export class LineClientService {
   }
 
   async getMessageContent(messageId: string): Promise<ArrayBuffer> {
+    const accessToken = await this.getAccessToken();
     const res = await fetch(
       `${LINE_DATA_API_BASE}/message/${messageId}/content`,
-      { headers: { Authorization: `Bearer ${this.accessToken}` } },
+      { headers: { Authorization: `Bearer ${accessToken}` } },
     );
 
     if (!res.ok) {
@@ -91,11 +93,12 @@ export class LineClientService {
   }
 
   private async request(path: string, body: unknown): Promise<Response> {
+    const accessToken = await this.getAccessToken();
     return fetch(`${LINE_API_BASE}${path}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify(body),
     });

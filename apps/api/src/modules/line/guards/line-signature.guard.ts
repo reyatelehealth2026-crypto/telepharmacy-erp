@@ -5,17 +5,17 @@ import {
   ForbiddenException,
   Logger,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { createHmac, timingSafeEqual } from 'crypto';
+import { DynamicConfigService } from '../../health/dynamic-config.service';
 import { LINE_SIGNATURE_HEADER } from '../line.constants';
 
 @Injectable()
 export class LineSignatureGuard implements CanActivate {
   private readonly logger = new Logger(LineSignatureGuard.name);
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(private readonly dynamicConfig: DynamicConfigService) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const signature = request.headers[LINE_SIGNATURE_HEADER] as
       | string
@@ -32,7 +32,10 @@ export class LineSignatureGuard implements CanActivate {
       throw new ForbiddenException('Cannot verify LINE signature');
     }
 
-    const channelSecret = this.config.getOrThrow<string>('line.channelSecret');
+    const channelSecret = await this.dynamicConfig.resolve(
+      'line.channelSecret',
+      'LINE_CHANNEL_SECRET',
+    );
     const expectedSignature = createHmac('SHA256', channelSecret)
       .update(rawBody)
       .digest('base64');

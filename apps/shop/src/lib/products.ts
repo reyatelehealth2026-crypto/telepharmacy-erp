@@ -64,6 +64,32 @@ export interface ProductQueryParams {
   sortOrder?: 'asc' | 'desc';
 }
 
+/** Drug classifications that require a prescription */
+export const PRESCRIPTION_REQUIRED_CLASSIFICATIONS = [
+  'dangerous_drug',
+  'specially_controlled',
+  'psychotropic',
+  'narcotic',
+] as const;
+
+/** All drug classification options with Thai labels */
+export const DRUG_CLASSIFICATION_OPTIONS = [
+  { value: 'hhr', label: 'ยาสามัญประจำบ้าน' },
+  { value: 'dangerous_drug', label: 'ยาอันตราย' },
+  { value: 'specially_controlled', label: 'ยาควบคุมพิเศษ' },
+  { value: 'psychotropic', label: 'วัตถุออกฤทธิ์' },
+  { value: 'narcotic', label: 'ยาเสพติด' },
+  { value: 'device', label: 'เครื่องมือแพทย์' },
+  { value: 'supplement', label: 'อาหารเสริม' },
+  { value: 'cosmetic', label: 'เครื่องสำอาง' },
+  { value: 'herbal', label: 'สมุนไพร' },
+  { value: 'food', label: 'อาหาร' },
+] as const;
+
+export function requiresPrescriptionForClassification(classification: string | null): boolean {
+  return PRESCRIPTION_REQUIRED_CLASSIFICATIONS.includes(classification as any);
+}
+
 async function apiFetch<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     next: { revalidate: 60 },

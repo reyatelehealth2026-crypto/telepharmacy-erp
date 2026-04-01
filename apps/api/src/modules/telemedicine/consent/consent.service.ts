@@ -113,7 +113,7 @@ export class EConsentService {
     // Check if template is still active
     const isTemplateActive = template?.isActive === true;
     const isTemplateExpired =
-      template?.effectiveUntil && new Date(template.effectiveUntil) < new Date();
+      template?.effectiveUntil ? new Date(template.effectiveUntil) < new Date() : false;
 
     const requiresNewConsent = !isTemplateActive || isTemplateExpired;
 

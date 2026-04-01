@@ -3,13 +3,26 @@
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Truck, MapPin, CreditCard, Pill, Copy, RotateCcw, Loader2, Package, CheckCircle, Clock, XCircle } from 'lucide-react';
+import {
+  ArrowLeft,
+  Truck,
+  MapPin,
+  CreditCard,
+  Pill,
+  Copy,
+  RotateCcw,
+  Loader2,
+  Package,
+  CheckCircle,
+  Clock,
+  XCircle,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/store/auth';
 import { getOrder, reOrder, type Order, type OrderStatus } from '@/lib/orders';
-import { formatPrice } from '@/lib/utils';
+import { formatPrice, formatDate } from '@/lib/utils';
 
 const statusConfig: Record<OrderStatus, { label: string; gradient: string; icon: typeof Package }> = {
   awaiting_payment: { label: 'รอชำระเงิน', gradient: 'from-amber-500 to-orange-500', icon: Clock },
@@ -22,32 +35,51 @@ const statusConfig: Record<OrderStatus, { label: string; gradient: string; icon:
   cancelled: { label: 'ยกเลิก', gradient: 'from-red-500 to-rose-500', icon: XCircle },
 };
 
-const trackingStepDefs: { status: OrderStatus; label: string }[] = [
-  { status: 'awaiting_payment', label: 'สั่งซื้อสำเร็จ' },
-  { status: 'paid', label: 'ชำระเงินแล้ว' },
-  { status: 'processing', label: 'เตรียมสินค้า' },
-  { status: 'packed', label: 'แพ็คสินค้าแล้ว' },
-  { status: 'shipped', label: 'จัดส่งแล้ว' },
-  { status: 'delivered', label: 'ส่งถึงแล้ว' },
-  { status: 'completed', label: 'เสร็จสิ้น' },
-];
+/* Simplified 4-step tracking timeline: confirmed → preparing → shipped → delivered */
+const trackingSteps = [
+  { key: 'confirmed', label: 'ยืนยันคำสั่งซื้อ', icon: CheckCircle },
+  { key: 'preparing', label: 'กำลังเตรียมสินค้า', icon: Package },
+  { key: 'shipped', label: 'จัดส่งแล้ว', icon: Truck },
+  { key: 'delivered', label: 'ส่งถึงแล้ว', icon: CheckCircle },
+] as const;
 
-const statusOrder: OrderStatus[] = ['awaiting_payment', 'paid', 'processing', 'packed', 'shipped', 'delivered', 'completed'];
+/** Map every OrderStatus to which tracking step index it corresponds to */
+function getTrackingStepIndex(status: OrderStatus): number {
+  switch (status) {
+    case 'awaiting_payment':
+      return -1; // before confirmed
+    case 'paid':
+      return 0; // confirmed
+    case 'processing':
+    case 'packed':
+      return 1; // preparing
+    case 'shipped':
+      return 2; // shipped
+    case 'delivered':
+    case 'completed':
+      return 3; // delivered
+    case 'cancelled':
+      return -2; // special
+    default:
+      return -1;
+  }
+}
 
-function buildTrackingSteps(order: Order) {
+function buildTrackingTimeline(order: Order) {
   if (order.status === 'cancelled') {
-    return [{ label: 'ยกเลิก', done: true, active: false }];
+    return trackingSteps.map((step) => ({
+      ...step,
+      done: false,
+      active: false,
+    }));
   }
 
-  const currentIdx = statusOrder.indexOf(order.status);
-  return trackingStepDefs.map((step) => {
-    const stepIdx = statusOrder.indexOf(step.status);
-    return {
-      label: step.label,
-      done: stepIdx < currentIdx,
-      active: stepIdx === currentIdx,
-    };
-  });
+  const currentIdx = getTrackingStepIndex(order.status);
+  return trackingSteps.map((step, i) => ({
+    ...step,
+    done: i < currentIdx,
+    active: i === currentIdx,
+  }));
 }
 
 const paymentLabels: Record<string, string> = {
@@ -111,7 +143,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
   const config = statusConfig[order.status] ?? statusConfig.processing;
   const StatusIcon = config.icon;
-  const steps = buildTrackingSteps(order);
+  const steps = buildTrackingTimeline(order);
 
   return (
     <div className="pb-24">
@@ -123,65 +155,114 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       </div>
 
       <div className="space-y-4 px-4">
-        {/* Status */}
+        {/* Status Header */}
         <div className={`rounded-xl bg-gradient-to-r ${config.gradient} p-4 text-white`}>
           <div className="flex items-center gap-2">
             <StatusIcon className="h-5 w-5" />
             <span className="font-bold">{config.label}</span>
           </div>
           <p className="mt-1 text-sm text-white/80">
-            {order.orderNo}
-            {order.delivery.estimatedDelivery && ` · คาดว่าถึง ${new Date(order.delivery.estimatedDelivery).toLocaleDateString('th-TH')}`}
+            {order.orderNo} · {formatDate(order.createdAt)}
           </p>
-          {order.delivery.trackingNo && (
-            <div className="mt-2 flex items-center gap-2">
-              <span className="text-sm">Tracking: {order.delivery.trackingNo}</span>
+          {order.delivery.estimatedDelivery && (
+            <p className="mt-0.5 text-sm text-white/80">
+              คาดว่าถึง {formatDate(order.delivery.estimatedDelivery)}
+            </p>
+          )}
+        </div>
+
+        {/* Tracking Number & Carrier */}
+        {order.delivery.trackingNo && (
+          <div className="rounded-xl border p-4">
+            <div className="flex items-center gap-2">
+              <Truck className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-bold">ข้อมูลการจัดส่ง</h2>
+            </div>
+            <div className="mt-2 flex items-center justify-between">
+              <div>
+                <p className="text-sm">
+                  เลข Tracking: <span className="font-medium">{order.delivery.trackingNo}</span>
+                </p>
+                {order.delivery.provider && (
+                  <p className="text-xs text-muted-foreground">ขนส่ง: {order.delivery.provider}</p>
+                )}
+              </div>
               <button
-                className="rounded p-0.5 hover:bg-white/20"
+                className="rounded-lg border p-2 hover:bg-muted"
                 onClick={() => {
                   navigator.clipboard.writeText(order.delivery.trackingNo!);
                   toast.success('คัดลอกเลข Tracking แล้ว');
                 }}
               >
-                <Copy className="h-3.5 w-3.5" />
+                <Copy className="h-4 w-4 text-muted-foreground" />
               </button>
             </div>
-          )}
-        </div>
-
-        {/* Tracking Timeline */}
-        <div className="rounded-xl border p-4">
-          <h2 className="text-sm font-bold">สถานะการจัดส่ง</h2>
-          <div className="mt-3 space-y-0">
-            {steps.map((step, i) => (
-              <div key={i} className="flex gap-3">
-                <div className="flex flex-col items-center">
-                  <div
-                    className={`h-3 w-3 rounded-full ${
-                      step.done
-                        ? 'bg-primary'
-                        : step.active
-                          ? 'border-2 border-primary bg-white'
-                          : 'bg-muted'
-                    }`}
-                  />
-                  {i < steps.length - 1 && (
-                    <div className={`h-8 w-0.5 ${step.done ? 'bg-primary' : 'bg-muted'}`} />
-                  )}
-                </div>
-                <div className="-mt-0.5 pb-4">
-                  <p className={`text-sm ${step.done || step.active ? 'font-medium' : 'text-muted-foreground'}`}>
-                    {step.label}
-                  </p>
-                </div>
-              </div>
-            ))}
           </div>
-        </div>
+        )}
+
+        {/* Visual Tracking Timeline — confirmed → preparing → shipped → delivered */}
+        {order.status !== 'cancelled' && (
+          <div className="rounded-xl border p-4">
+            <h2 className="text-sm font-bold">สถานะการจัดส่ง</h2>
+            <div className="mt-4 space-y-0">
+              {steps.map((step, i) => {
+                const StepIcon = step.icon;
+                return (
+                  <div key={step.key} className="flex gap-3">
+                    <div className="flex flex-col items-center">
+                      <div
+                        className={`flex h-7 w-7 items-center justify-center rounded-full border-2 ${
+                          step.done
+                            ? 'border-primary bg-primary text-white'
+                            : step.active
+                              ? 'border-primary bg-white'
+                              : 'border-muted bg-muted'
+                        }`}
+                      >
+                        {step.done ? (
+                          <CheckCircle className="h-4 w-4" />
+                        ) : step.active ? (
+                          <div className="h-2.5 w-2.5 rounded-full bg-primary" />
+                        ) : (
+                          <StepIcon className="h-3.5 w-3.5 text-muted-foreground/50" />
+                        )}
+                      </div>
+                      {i < steps.length - 1 && (
+                        <div className={`h-8 w-0.5 ${step.done ? 'bg-primary' : 'bg-muted'}`} />
+                      )}
+                    </div>
+                    <div className="-mt-0.5 pb-4">
+                      <p
+                        className={`text-sm ${
+                          step.done || step.active ? 'font-medium' : 'text-muted-foreground'
+                        }`}
+                      >
+                        {step.label}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Cancelled Notice */}
+        {order.status === 'cancelled' && (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+            <div className="flex items-center gap-2">
+              <XCircle className="h-4 w-4 text-red-600" />
+              <h2 className="text-sm font-bold text-red-800">คำสั่งซื้อถูกยกเลิก</h2>
+            </div>
+            <p className="mt-1 text-xs text-red-700">
+              คำสั่งซื้อนี้ถูกยกเลิกแล้ว หากมีข้อสงสัยกรุณาติดต่อร้าน
+            </p>
+          </div>
+        )}
 
         {/* Items */}
         <div className="rounded-xl border p-4">
-          <h2 className="text-sm font-bold">รายการสินค้า</h2>
+          <h2 className="text-sm font-bold">รายการสินค้า ({order.items.length} รายการ)</h2>
           <div className="mt-3 space-y-3">
             {order.items.map((item, i) => (
               <div key={i} className="flex items-center gap-3">
@@ -220,18 +301,6 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           </div>
         </div>
 
-        {/* Delivery Address */}
-        <div className="rounded-xl border p-4">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-bold">ที่อยู่จัดส่ง</h2>
-          </div>
-          <p className="mt-2 text-sm text-muted-foreground">{order.delivery.address}</p>
-          {order.delivery.provider && (
-            <p className="mt-1 text-xs text-muted-foreground">ขนส่ง: {order.delivery.provider}</p>
-          )}
-        </div>
-
         {/* Payment */}
         <div className="rounded-xl border p-4">
           <div className="flex items-center gap-2">
@@ -246,11 +315,25 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               {order.payment.status === 'successful' ? 'ชำระแล้ว' : 'รอชำระ'}
             </Badge>
           </div>
+          {order.payment.paidAt && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              ชำระเมื่อ {formatDate(order.payment.paidAt)}
+            </p>
+          )}
+        </div>
+
+        {/* Delivery Address */}
+        <div className="rounded-xl border p-4">
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-primary" />
+            <h2 className="text-sm font-bold">ที่อยู่จัดส่ง</h2>
+          </div>
+          <p className="mt-2 text-sm text-muted-foreground">{order.delivery.address}</p>
         </div>
 
         {/* Actions */}
         <div className="flex gap-3">
-          <Button variant="outline" className="flex-1" onClick={handleReorder} disabled={reordering}>
+          <Button variant="outline" className="flex-1 gap-2" onClick={handleReorder} disabled={reordering}>
             {reordering ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
             สั่งซื้อซ้ำ
           </Button>

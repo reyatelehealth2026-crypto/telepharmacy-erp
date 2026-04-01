@@ -2,16 +2,16 @@ import Link from 'next/link';
 import {
   Pill,
   FileImage,
-  MessageCircle,
   Repeat,
   Sparkles,
-  Stethoscope,
   Leaf,
   Bot,
+  FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProductCard } from '@/components/product/product-card';
 import { getFeaturedProducts } from '@/lib/products';
+import { getArticles, type Article } from '@/lib/content';
 
 const quickActions = [
   { href: '/search', icon: Pill, label: 'สั่งซื้อยา', color: 'bg-emerald-500' },
@@ -32,7 +32,12 @@ const categories = [
 ];
 
 export default async function HomePage() {
-  const featuredProducts = await getFeaturedProducts(8).catch(() => []);
+  const [featuredProducts, healthTips] = await Promise.all([
+    getFeaturedProducts(8).catch(() => []),
+    getArticles({ type: 'health_article', limit: 3 })
+      .then((res) => res.data ?? [])
+      .catch(() => [] as Article[]),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -149,30 +154,39 @@ export default async function HomePage() {
 
       {/* Health Tips */}
       <section className="px-4 pb-4">
-        <h2 className="text-base font-bold">เคล็ดลับสุขภาพ</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-bold">เคล็ดลับสุขภาพ</h2>
+          <Link href="/articles" className="text-sm text-primary">
+            ดูทั้งหมด
+          </Link>
+        </div>
         <div className="mt-3 space-y-3">
-          <div className="flex gap-3 rounded-xl border p-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
-              <Stethoscope className="h-5 w-5" />
+          {healthTips.length > 0 ? (
+            healthTips.map((article) => (
+              <Link
+                key={article.id}
+                href={`/articles/${article.slug}`}
+                className="flex gap-3 rounded-xl border p-3 transition-colors hover:bg-muted/50"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">
+                  <FileText className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="line-clamp-1 text-sm font-medium">{article.titleTh}</h3>
+                  {article.excerpt && (
+                    <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
+                      {article.excerpt}
+                    </p>
+                  )}
+                </div>
+              </Link>
+            ))
+          ) : (
+            <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+              <Leaf className="mx-auto mb-2 h-6 w-6 opacity-30" />
+              <p>ยังไม่มีบทความสุขภาพ</p>
             </div>
-            <div>
-              <h3 className="text-sm font-medium">ไข้หวัดใหญ่ vs ไข้หวัดธรรมดา</h3>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                วิธีสังเกตอาการและการดูแลตัวเองเบื้องต้น
-              </p>
-            </div>
-          </div>
-          <div className="flex gap-3 rounded-xl border p-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-100 text-green-600">
-              <Leaf className="h-5 w-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-medium">สมุนไพรไทยบรรเทาอาการปวด</h3>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                ทางเลือกธรรมชาติสำหรับอาการปวดเรื้อรัง
-              </p>
-            </div>
-          </div>
+          )}
         </div>
       </section>
     </div>

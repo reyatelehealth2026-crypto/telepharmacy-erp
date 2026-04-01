@@ -9,10 +9,17 @@ export interface PatientProfile {
   lastName: string;
   phone: string | null;
   dateOfBirth: string | null;
+  birthDate: string | null;
   gender: string | null;
   bloodType: string | null;
   weight: number | null;
   height: number | null;
+  age: number | null;
+  address: string | null;
+  subDistrict: string | null;
+  district: string | null;
+  province: string | null;
+  postalCode: string | null;
   loyaltyPoints: number;
   loyaltyTier: string;
   createdAt: string;
@@ -124,6 +131,11 @@ export interface ProfileUpdateData {
   weight?: number;
   height?: number;
   bloodType?: string;
+  address?: string;
+  subDistrict?: string;
+  district?: string;
+  province?: string;
+  postalCode?: string;
 }
 
 export async function updateProfile(token: string, data: ProfileUpdateData): Promise<PatientProfile> {

@@ -14,6 +14,7 @@ import * as crypto from 'crypto';
 import { eq, desc, and, isNull } from 'drizzle-orm';
 import { staff, patients, accountLinkTokens } from '@telepharmacy/db';
 import { DRIZZLE } from '../../database/database.constants';
+import { DynamicConfigService } from '../health/dynamic-config.service';
 import { TokenType } from './auth.constants';
 import type { JwtPayload, RequestUser } from './interfaces';
 import type { LineLoginDto } from './dto/line-login.dto';
@@ -29,6 +30,7 @@ export class AuthService {
     @Inject(DRIZZLE) private readonly db: any,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
+    private readonly dynamicConfig: DynamicConfigService,
   ) {}
 
   async lineLogin(dto: LineLoginDto) {
@@ -448,7 +450,13 @@ export class AuthService {
         throw new UnauthorizedException('LINE access token ไม่ถูกต้อง');
       }
       const verifyData = (await verifyRes.json()) as { client_id: string; expires_in: number };
-      const channelId = this.config.get<string>('line.channelId') ?? '';
+
+      // Resolve channelId: DB → env → derive from LIFF ID
+      let channelId = await this.dynamicConfig.resolve('line.channelId', 'LINE_CHANNEL_ID');
+      if (!channelId) {
+        const liffId = await this.dynamicConfig.resolve('line.liffId', 'LINE_LIFF_ID');
+        channelId = liffId.split('-')[0] || '';
+      }
       if (verifyData.client_id !== channelId) {
         throw new UnauthorizedException('LINE channel ไม่ตรงกัน');
       }

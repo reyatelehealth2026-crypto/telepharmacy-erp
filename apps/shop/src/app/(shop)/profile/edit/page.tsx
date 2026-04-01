@@ -13,9 +13,9 @@ import {
   Ruler,
   Weight,
   Droplets,
+  MapPin,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useAuthStore } from '@/store/auth';
 import { useAuthGuard } from '@/lib/use-auth-guard';
 import { getMyProfile, updateProfile, type PatientProfile } from '@/lib/patient';
@@ -23,8 +23,8 @@ import { toast } from 'sonner';
 
 export default function EditProfilePage() {
   const router = useRouter();
-  const { loading: authLoading, token } = useAuthGuard();
-  const { accessToken, patient } = useAuthStore();
+  const { loading: authLoading } = useAuthGuard();
+  const { accessToken } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -37,6 +37,11 @@ export default function EditProfilePage() {
     weight: '',
     height: '',
     bloodType: '',
+    address: '',
+    subDistrict: '',
+    district: '',
+    province: '',
+    postalCode: '',
   });
 
   useEffect(() => {
@@ -51,11 +56,16 @@ export default function EditProfilePage() {
         firstName: profile.firstName,
         lastName: profile.lastName,
         phone: profile.phone ?? '',
-        dateOfBirth: profile.dateOfBirth ?? '',
+        dateOfBirth: profile.birthDate ?? profile.dateOfBirth ?? '',
         gender: (profile.gender as any) ?? '',
         weight: profile.weight?.toString() ?? '',
         height: profile.height?.toString() ?? '',
         bloodType: profile.bloodType ?? '',
+        address: profile.address ?? '',
+        subDistrict: profile.subDistrict ?? '',
+        district: profile.district ?? '',
+        province: profile.province ?? '',
+        postalCode: profile.postalCode ?? '',
       });
     } catch {
       toast.error('โหลดข้อมูลไม่สำเร็จ');
@@ -78,6 +88,11 @@ export default function EditProfilePage() {
         weight: form.weight ? parseFloat(form.weight) : undefined,
         height: form.height ? parseFloat(form.height) : undefined,
         bloodType: form.bloodType || undefined,
+        address: form.address || undefined,
+        subDistrict: form.subDistrict || undefined,
+        district: form.district || undefined,
+        province: form.province || undefined,
+        postalCode: form.postalCode || undefined,
       });
       toast.success('บันทึกข้อมูลสำเร็จ');
       router.push('/profile');
@@ -197,6 +212,66 @@ export default function EditProfilePage() {
                 {g.label}
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* Address Section */}
+        <div className="pt-2">
+          <h2 className="text-sm font-semibold flex items-center gap-2 mb-3">
+            <MapPin className="h-4 w-4 text-primary" />
+            ที่อยู่
+          </h2>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">ที่อยู่</label>
+              <textarea
+                className="mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                rows={2}
+                placeholder="บ้านเลขที่ ซอย ถนน"
+                value={form.address}
+                onChange={(e) => updateField('address', e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">แขวง/ตำบล</label>
+                <input
+                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="แขวง/ตำบล"
+                  value={form.subDistrict}
+                  onChange={(e) => updateField('subDistrict', e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">เขต/อำเภอ</label>
+                <input
+                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="เขต/อำเภอ"
+                  value={form.district}
+                  onChange={(e) => updateField('district', e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">จังหวัด</label>
+                <input
+                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="จังหวัด"
+                  value={form.province}
+                  onChange={(e) => updateField('province', e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">รหัสไปรษณีย์</label>
+                <input
+                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="10xxx"
+                  value={form.postalCode}
+                  onChange={(e) => updateField('postalCode', e.target.value)}
+                />
+              </div>
+            </div>
           </div>
         </div>
 

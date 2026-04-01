@@ -1,12 +1,15 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { eq } from 'drizzle-orm';
 import { patients, chatSessions, chatMessages } from '@telepharmacy/db';
+import { chatWithPatientSync } from '@telepharmacy/ai';
 import { DRIZZLE } from '../../../database/database.constants';
 import { LineClientService } from './line-client.service';
 import { FlexMessageService } from './flex-message.service';
 import { SmartOrderParserService } from './smart-order-parser.service';
 import { SentimentService } from './sentiment.service';
+import { EventsService } from '../../events/events.service';
+import { PrescriptionService } from '../../prescription/prescription.service';
 import type {
   LineWebhookEvent,
   LineMessageEvent,
@@ -16,6 +19,9 @@ import type {
   LineTextMessage,
   LineImageMessage,
 } from '../types/line-events.types';
+
+/** Minimum OCR confidence to treat an image as a prescription */
+const PRESCRIPTION_OCR_THRESHOLD = 0.4;
 
 @Injectable()
 export class LineWebhookService {
@@ -29,6 +35,8 @@ export class LineWebhookService {
     private readonly smartOrderParser: SmartOrderParserService,
     private readonly sentimentService: SentimentService,
     private readonly config: ConfigService,
+    @Optional() private readonly prescriptionService?: PrescriptionService,
+    @Optional() private readonly eventsService?: EventsService,
   ) {
     this.shopUrl =
       this.config.get<string>('NEXT_PUBLIC_SHOP_URL') ?? 'https://shop.re-ya.com';
@@ -118,6 +126,20 @@ export class LineWebhookService {
         updatedAt: new Date(),
       })
       .where(eq(chatSessions.id, session.id));
+
+    // Emit real-time WebSocket event for admin inbox
+    try {
+      this.eventsService?.emitChatMessage({
+        id: savedMsg.id,
+        sessionId: session.id,
+        patientId: patient.id,
+        content: msg.text,
+        role: 'user',
+        messageType: 'text',
+      });
+    } catch (err) {
+      this.logger.error(`Failed to emit chat:message for session ${session.id}`, (err as Error).stack);
+    }
 
     // ── Sentiment Analysis (async, non-blocking reply) ──
     this.sentimentService.analyze(msg.text).then(async (sentiment) => {
@@ -215,6 +237,76 @@ export class LineWebhookService {
       return;
     }
 
+    // ── AI Chatbot Response → fallback to staff inbox ──
+    await this.handleAiChatbotResponse(event, msg.text, session, patient);
+  }
+
+  /**
+   * Try AI chatbot first. If AI confidence is below threshold or AI
+   * explicitly says it can't handle (shouldTransfer), fall back to
+   * the staff inbox message.
+   */
+  private async handleAiChatbotResponse(
+    event: LineMessageEvent,
+    text: string,
+    session: any,
+    _patient: any,
+  ): Promise<void> {
+
+    try {
+      const aiResponse = await chatWithPatientSync(text, [], undefined);
+
+      // Determine if AI can handle this query
+      const aiCanHandle =
+        !aiResponse.shouldTransfer &&
+        aiResponse.message &&
+        aiResponse.message.length > 0;
+
+      if (aiCanHandle) {
+        // Save AI response to chat
+        await this.db.insert(chatMessages).values({
+          sessionId: session.id,
+          role: 'bot',
+          content: aiResponse.message,
+          messageType: 'text',
+          aiModel: 'gemini-2.5-pro',
+        });
+
+        const replyMessages: any[] = [
+          { type: 'text', text: aiResponse.message },
+        ];
+
+        // Add disclaimer if present
+        if (aiResponse.disclaimer) {
+          replyMessages.push({
+            type: 'text',
+            text: `⚠️ ${aiResponse.disclaimer}`,
+          });
+        }
+
+        // If AI suggests transferring to pharmacist, add a button
+        if (aiResponse.products && aiResponse.products.length > 0) {
+          replyMessages.push({
+            type: 'text',
+            text: `🛒 ดูสินค้าแนะนำได้ที่:\n${this.shopUrl}/search`,
+          });
+        }
+
+        await this.lineClient.replyMessage(event.replyToken, replyMessages);
+
+        // Update session type to ai_assisted
+        await this.db
+          .update(chatSessions)
+          .set({ sessionType: 'ai_assisted', updatedAt: new Date() })
+          .where(eq(chatSessions.id, session.id));
+
+        return;
+      }
+    } catch (err) {
+      this.logger.error(`AI chatbot error: ${(err as Error).message}`);
+    }
+
+    // Fallback to staff inbox
     await this.lineClient.replyMessage(event.replyToken, [
       {
         type: 'text',
@@ -255,10 +347,61 @@ export class LineWebhookService {
       })
       .where(eq(chatSessions.id, session.id));
 
+    // ── Attempt prescription OCR ──
+    try {
+      const imageBuffer = await this.lineClient.getMessageContent(msg.id);
+      const base64 = Buffer.from(imageBuffer).toString('base64');
+
+      const { extractPrescription } = require('@telepharmacy/ai/ocr') as {
+        extractPrescription: (b64: string, mime: string) => Promise<{ confidence: number; items: any[]; prescriber: { name: string } }>;
+      };
+
+      const ocrResult = await extractPrescription(base64, 'image/jpeg');
+
+      if (
+        ocrResult.confidence >= PRESCRIPTION_OCR_THRESHOLD &&
+        ocrResult.items.length > 0 &&
+        this.prescriptionService
+      ) {
+        // Prescription detected — create a record automatically
+        const rx = await this.prescriptionService.create(patient.id, {
+          source: 'line_chat',
+          diagnosis: undefined,
+          // Note: imageUrls not available directly from LINE content API,
+          // the OCR processor will handle the image via the prescription record
+        });
+
+        const itemList = ocrResult.items
+          .slice(0, 5)
+          .map((item: any) => `• ${item.drugName}${item.strength ? ` ${item.strength}` : ''}`)
+          .join('\n');
+
+        await this.lineClient.replyMessage(event.replyToken, [
+          {
+            type: 'text',
+            text: `📋 ตรวจพบใบสั่งยาค่ะ!\nหมายเลข: ${rx.rxNo}\n\nรายการยาที่พบ:\n${itemList}\n\nเภสัชกรจะตรวจสอบและยืนยันให้ค่ะ 💊`,
+          },
+          {
+            type: 'text',
+            text: `📱 ติดตามสถานะใบสั่งยาได้ที่:\n${this.shopUrl}/rx/${rx.id}`,
+          },
+        ]);
+
+        this.logger.log(
+          `Auto-created prescription ${rx.rxNo} from LINE image (confidence: ${ocrResult.confidence})`,
+        );
+        return;
+      }
+    } catch (err) {
+      this.logger.error(`Prescription OCR attempt failed: ${(err as Error).message}`);
+    }
+
+    // Not a prescription or OCR failed — route to staff inbox
     await this.lineClient.replyMessage(event.replyToken, [
       {
         type: 'text',
-        text: '📷 ได้รับรูปภาพแล้วค่ะ\n\nหากเป็นใบสั่งยา เภสัชกรจะตรวจสอบและแจ้งผลให้ทราบค่ะ\nกรุณารอสักครู่นะคะ 🙏',
+        text: '📷 ได้รับรูปภาพแล้วค่ะ\nเภสัชกรจะตรวจสอบและตอบกลับโดยเร็วที่สุดค่ะ 🙏\n\nหากต้องการส่งใบสั่งยา กดที่:\n' +
+          `${this.shopUrl}/rx/upload`,
       },
     ]);
   }
@@ -296,14 +439,27 @@ export class LineWebhookService {
       this.logger.warn(`Could not fetch profile for ${userId}`);
     }
 
-    await this.findOrCreatePatient(userId, displayName);
+    const patient = await this.findOrCreatePatient(userId, displayName);
 
+    // Send welcome Flex Message with quick action buttons
     const welcomeMessage = this.flexMessage.welcome({
       displayName,
       shopUrl: this.shopUrl,
     });
 
-    await this.lineClient.replyMessage(event.replyToken, [welcomeMessage]);
+    // Add registration prompt if patient hasn't completed profile
+    const needsRegistration = !patient.phone || !patient.dateOfBirth;
+
+    const messages: any[] = [welcomeMessage];
+
+    if (needsRegistration) {
+      messages.push({
+        type: 'text',
+        text: `📝 กรุณาลงทะเบียนข้อมูลเพื่อรับบริการที่ดียิ่งขึ้นค่ะ\n\n👤 ลงทะเบียนที่:\n${this.shopUrl}/profile/edit`,
+      });
+    }
+
+    await this.lineClient.replyMessage(event.replyToken, messages);
   }
 
   private async handleUnfollow(event: LineUnfollowEvent): Promise<void> {

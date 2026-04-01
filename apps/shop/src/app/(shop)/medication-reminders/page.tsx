@@ -42,6 +42,7 @@ export default function MedicationRemindersPage() {
   const [stats, setStats] = useState<AdherenceStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [acknowledging, setAcknowledging] = useState<string | null>(null);
   const [form, setForm] = useState({
     drugName: '',
     sig: '',
@@ -116,23 +117,39 @@ export default function MedicationRemindersPage() {
     }
   };
 
-  const handleMarkTaken = async (id: string) => {
+  const handleAcknowledge = async (id: string) => {
     if (!accessToken) return;
+    setAcknowledging(id);
     try {
       const updated = await acknowledgeReminder(accessToken, id);
       setReminders((prev) => prev.map((r) => (r.id === id ? updated : r)));
       toast.success('บันทึกการกินยาสำเร็จ');
     } catch {
       toast.error('ไม่สามารถบันทึก');
+    } finally {
+      setAcknowledging(null);
     }
+  };
+
+  /** Check if reminder was acknowledged today */
+  const isAcknowledgedToday = (reminder: Reminder): boolean => {
+    if (!reminder.lastConfirmedAt) return false;
+    return new Date(reminder.lastConfirmedAt).toDateString() === new Date().toDateString();
   };
 
   const adherenceRate = stats?.adherenceRate ?? 0;
 
-  if (authLoading) return <div className="flex items-center justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="pb-24">
+      {/* Header */}
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-3">
           <Link href="/profile" className="rounded-full p-1 hover:bg-muted">
@@ -221,91 +238,110 @@ export default function MedicationRemindersPage() {
               </div>
             )}
 
-        {/* Reminder List */}
-        {reminders.map((reminder) => {
-          const dayLabels = (reminder.reminderDays ?? ALL_DAYS)
-            .map((d) => DAY_LABELS[d] ?? d)
-            .join(' ');
-          const timeStr = (reminder.reminderTimes ?? []).join(', ') || '—';
-          const adherence = parseFloat(reminder.weeklyAdherence ?? '0');
-          const confirmedToday =
-            reminder.lastConfirmedAt &&
-            new Date(reminder.lastConfirmedAt).toDateString() === new Date().toDateString();
+            {/* Reminder List */}
+            {reminders.map((reminder) => {
+              const dayLabels = (reminder.reminderDays ?? ALL_DAYS)
+                .map((d) => DAY_LABELS[d] ?? d)
+                .join(' ');
+              const timeStr = (reminder.reminderTimes ?? []).join(', ') || '—';
+              const adherence = parseFloat(reminder.weeklyAdherence ?? '0');
+              const acknowledged = isAcknowledgedToday(reminder);
+              const isAcknowledgingThis = acknowledging === reminder.id;
 
-          return (
-            <div key={reminder.id} className="rounded-xl border p-4">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                    <Pill className="h-5 w-5 text-primary" />
+              return (
+                <div key={reminder.id} className="rounded-xl border p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                        acknowledged ? 'bg-emerald-100' : 'bg-primary/10'
+                      }`}>
+                        <Pill className={`h-5 w-5 ${acknowledged ? 'text-emerald-600' : 'text-primary'}`} />
+                      </div>
+                      <div>
+                        {/* Medication Name */}
+                        <p className="font-medium text-sm">{reminder.drugName}</p>
+                        {/* Dosage / Sig */}
+                        {reminder.sig && (
+                          <p className="text-xs text-muted-foreground">{reminder.sig}</p>
+                        )}
+                        {/* Schedule: time + days */}
+                        <div className="flex items-center gap-2 mt-1">
+                          <Clock className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-xs font-medium">{timeStr}</span>
+                          <span className="text-xs text-muted-foreground">({dayLabels})</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      {/* Acknowledgment Status Badge */}
+                      {acknowledged ? (
+                        <Badge variant="success">กินแล้ว</Badge>
+                      ) : (
+                        <Badge variant="warning">รอกินยา</Badge>
+                      )}
+                      {/* Active toggle */}
+                      <button
+                        onClick={() => handleToggle(reminder.id)}
+                        className={`h-6 w-11 rounded-full transition-colors ${
+                          reminder.isActive ? 'bg-primary' : 'bg-muted-foreground/30'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                            reminder.isActive ? 'translate-x-5' : 'translate-x-0.5'
+                          }`}
+                        />
+                      </button>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-sm">{reminder.drugName}</p>
-                    {reminder.sig && (
-                      <p className="text-xs text-muted-foreground">{reminder.sig}</p>
-                    )}
-                    <div className="flex items-center gap-2 mt-1">
-                      <Clock className="h-3 w-3 text-muted-foreground" />
-                      <span className="text-xs">{timeStr}</span>
-                      <span className="text-xs text-muted-foreground">{dayLabels}</span>
+
+                  {/* Adherence & Actions */}
+                  <div className="mt-3 pt-3 border-t">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-muted-foreground">ความสม่ำเสมอ</p>
+                        <div className="flex items-center gap-2">
+                          <Progress value={adherence} className="w-24 h-2" />
+                          <span className="text-xs font-medium">{Math.round(adherence)}%</span>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        {/* Acknowledge Button */}
+                        {!acknowledged && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleAcknowledge(reminder.id)}
+                            disabled={isAcknowledgingThis}
+                          >
+                            {isAcknowledgingThis ? (
+                              <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                            ) : (
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                            )}
+                            กินแล้ว
+                          </Button>
+                        )}
+                        <button
+                          onClick={() => handleDelete(reminder.id)}
+                          className="p-1.5 text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleToggle(reminder.id)}
-                    className={`h-6 w-11 rounded-full transition-colors ${
-                      reminder.isActive ? 'bg-primary' : 'bg-muted-foreground/30'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                        reminder.isActive ? 'translate-x-5' : 'translate-x-0.5'
-                      }`}
-                    />
-                  </button>
-                </div>
-              </div>
+              );
+            })}
 
-              {/* Adherence & Actions */}
-              <div className="mt-3 pt-3 border-t">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-muted-foreground">ความสม่ำเสมอ</p>
-                    <div className="flex items-center gap-2">
-                      <Progress value={adherence} className="w-24 h-2" />
-                      <span className="text-xs font-medium">{Math.round(adherence)}%</span>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    {confirmedToday ? (
-                      <Badge variant="success">กินแล้ววันนี้</Badge>
-                    ) : (
-                      <Button size="sm" variant="outline" onClick={() => handleMarkTaken(reminder.id)}>
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                        กินแล้ว
-                      </Button>
-                    )}
-                    <button
-                      onClick={() => handleDelete(reminder.id)}
-                      className="p-1.5 text-muted-foreground hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
+            {reminders.length === 0 && !showAddForm && (
+              <div className="rounded-xl border border-dashed p-8 text-center">
+                <Bell className="mx-auto h-8 w-8 text-muted-foreground/30" />
+                <p className="mt-2 text-sm text-muted-foreground">ยังไม่มีการแจ้งเตือน</p>
+                <p className="text-xs text-muted-foreground">กด + เพื่อเพิ่ม</p>
               </div>
-            </div>
-          );
-        })}
-
-        {reminders.length === 0 && !showAddForm && (
-          <div className="rounded-xl border border-dashed p-8 text-center">
-            <Bell className="mx-auto h-8 w-8 text-muted-foreground/30" />
-            <p className="mt-2 text-sm text-muted-foreground">ยังไม่มีการแจ้งเตือน</p>
-            <p className="text-xs text-muted-foreground">กด + เพื่อเพิ่ม</p>
-          </div>
-        )}
+            )}
           </div>
         </>
       )}

@@ -66,8 +66,13 @@ export class SystemConfigService {
   }
 
   async set(key: string, value: unknown, updatedBy?: string) {
-    const existing = await this.get(key);
-    if (existing !== null) {
+    const [existing] = await this.db
+      .select({ key: systemConfig.key })
+      .from(systemConfig)
+      .where(eq(systemConfig.key, key))
+      .limit(1);
+
+    if (existing) {
       await this.db
         .update(systemConfig)
         .set({ value, updatedBy, updatedAt: new Date() })

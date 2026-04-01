@@ -195,14 +195,24 @@ export default function RxUploadPage() {
             <p className="mt-2 text-sm font-medium">อัปโหลดรูปใบสั่งยา</p>
             <p className="text-xs text-muted-foreground">สูงสุด 5 รูป (JPG, PNG, ไม่เกิน 5MB/รูป)</p>
             <div className="mt-4 flex gap-3">
-              <Button variant="outline" size="sm" type="button">
-                <Camera className="h-4 w-4" />
-                ถ่ายรูป
-              </Button>
+              <label>
+                <span className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted cursor-pointer">
+                  <Camera className="h-4 w-4" />
+                  ถ่ายรูป
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={handleFilesChange}
+                  disabled={uploading || files.length >= 5}
+                />
+              </label>
               <label>
                 <span className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted cursor-pointer">
                   <Upload className="h-4 w-4" />
-                  เลือกไฟล์
+                  เลือกจากแกลเลอรี
                 </span>
                 <input
                   type="file"
@@ -210,10 +220,13 @@ export default function RxUploadPage() {
                   multiple
                   className="hidden"
                   onChange={handleFilesChange}
-                  disabled={uploading}
+                  disabled={uploading || files.length >= 5}
                 />
               </label>
             </div>
+            {files.length >= 5 && (
+              <p className="mt-2 text-xs text-amber-600">เลือกรูปครบ 5 รูปแล้ว</p>
+            )}
           </div>
         </div>
 

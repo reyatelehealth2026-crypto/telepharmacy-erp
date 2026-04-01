@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useCartStore } from '@/store/cart';
 import { formatPrice } from '@/lib/utils';
+import { requiresPrescriptionForClassification } from '@/lib/products';
 
 interface ProductCardProps {
   id: string;
@@ -39,10 +40,14 @@ export function ProductCard({
 }: ProductCardProps) {
   const addItem = useCartStore((s) => s.addItem);
 
+  const needsRx =
+    requiresPrescription ||
+    requiresPrescriptionForClassification(drugClassification);
+
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!inStock || requiresPrescription) return;
+    if (!inStock || needsRx) return;
     addItem({
       productId: id,
       name,
@@ -81,7 +86,7 @@ export function ProductCard({
             </span>
           </div>
         )}
-        {requiresPrescription && (
+        {needsRx && (
           <Badge variant="warning" className="absolute left-2 top-2">
             ต้องมีใบสั่งยา
           </Badge>
@@ -101,18 +106,26 @@ export function ProductCard({
           {name}
         </h3>
 
-        {tags && tags.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {tags.slice(0, 2).map((tag) => (
-              <span
-                key={tag}
-                className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
+        {/* Stock status badge */}
+        <div className="flex flex-wrap items-center gap-1">
+          {inStock ? (
+            <Badge variant="success" className="text-[10px] px-1.5 py-0">
+              มีสินค้า
+            </Badge>
+          ) : (
+            <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+              สินค้าหมด
+            </Badge>
+          )}
+          {tags && tags.slice(0, 1).map((tag) => (
+            <span
+              key={tag}
+              className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
 
         <div className="mt-auto pt-2">
           <div className="flex items-baseline gap-2">
@@ -133,7 +146,7 @@ export function ProductCard({
           <span className="block text-xs text-muted-foreground">/{unit}</span>
         </div>
 
-        {!requiresPrescription && inStock && (
+        {!needsRx && inStock && (
           <Button
             size="sm"
             className="mt-2 w-full"

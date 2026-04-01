@@ -23,6 +23,10 @@ import { DrugInfoModule } from './modules/drug-info/drug-info.module';
 import { ComplianceModule } from './modules/compliance/compliance.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { TelemedicineModule } from './modules/telemedicine/telemedicine.module';
+import { PromotionsModule } from './modules/promotions/promotions.module';
+import { ContentModule } from './modules/content/content.module';
+import { ComplaintsModule } from './modules/complaints/complaints.module';
+import { EventsModule } from './modules/events/events.module';
 
 @Module({
   imports: [
@@ -56,6 +60,10 @@ import { TelemedicineModule } from './modules/telemedicine/telemedicine.module';
     ComplianceModule,
     NotificationsModule,
     TelemedicineModule,
+    PromotionsModule,
+    ContentModule,
+    ComplaintsModule,
+    EventsModule,
   ],
 })
 export class AppModule {}

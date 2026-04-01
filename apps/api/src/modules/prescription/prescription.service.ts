@@ -1,4 +1,4 @@
-import { Injectable, Inject, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Inject, Logger, NotFoundException, BadRequestException, Optional } from '@nestjs/common';
 import { eq, desc, and, inArray } from 'drizzle-orm';
 import {
   prescriptions,
@@ -15,6 +15,8 @@ import { DRIZZLE } from '../../database/database.constants';
 import { PrescriptionOcrService } from './prescription-ocr.service';
 import { SafetyCheckEngineService } from '../drug-safety/safety-check-engine.service';
 import { PrescriptionSignatureService } from './prescription-signature.service';
+import { NotificationSenderService } from '../notifications/notification-sender.service';
+import { EventsService } from '../events/events.service';
 import type { CreatePrescriptionDto } from './dto/create-prescription.dto';
 import type { VerifyPrescriptionDto } from './dto/verify-prescription.dto';
 import type { PatientSafetyContext } from '../drug-safety/drug-safety.types';
@@ -28,6 +30,8 @@ export class PrescriptionService {
     private readonly ocrService: PrescriptionOcrService,
     private readonly safetyEngine: SafetyCheckEngineService,
     private readonly signatureService: PrescriptionSignatureService,
+    private readonly notificationSender: NotificationSenderService,
+    @Optional() private readonly eventsService?: EventsService,
   ) {}
 
   async create(patientId: string, dto: CreatePrescriptionDto) {
@@ -197,6 +201,24 @@ export class PrescriptionService {
       });
     }
 
+    // Trigger notification for key prescription status changes
+    if (['approved', 'rejected', 'dispensed'].includes(newStatus) && rx.patientId) {
+      await this.sendPrescriptionNotification(rx, newStatus);
+    }
+
+    // Emit real-time WebSocket event for admin dashboard
+    try {
+      this.eventsService?.emitPrescriptionUpdate({
+        id,
+        status: newStatus,
+        patientId: rx.patientId,
+        rxNo: rx.rxNo,
+        verifiedBy: pharmacistId,
+      });
+    } catch (err) {
+      this.logger.error(`Failed to emit prescription:update for ${id}`, (err as Error).stack);
+    }
+
     return this.findById(id);
   }
 
@@ -344,6 +366,46 @@ export class PrescriptionService {
       signature: decoded,
       signatureValid: true,
     };
+  }
+
+  /**
+   * Send a notification to the patient when prescription status changes to approved/rejected/dispensed.
+   * Wrapped in try/catch so notification failures don't break the main flow.
+   */
+  private async sendPrescriptionNotification(rx: any, status: string) {
+    const statusMessages: Record<string, { title: string; body: string }> = {
+      approved: {
+        title: 'ใบสั่งยาอนุมัติแล้ว',
+        body: `ใบสั่งยา ${rx.rxNo} ได้รับการอนุมัติแล้ว สามารถสั่งซื้อยาได้`,
+      },
+      rejected: {
+        title: 'ใบสั่งยาไม่ผ่านการตรวจสอบ',
+        body: `ใบสั่งยา ${rx.rxNo} ไม่ผ่านการตรวจสอบ กรุณาติดต่อเภสัชกร`,
+      },
+      dispensed: {
+        title: 'จ่ายยาเรียบร้อย',
+        body: `ใบสั่งยา ${rx.rxNo} ได้จ่ายยาเรียบร้อยแล้ว`,
+      },
+    };
+
+    const msg = statusMessages[status];
+    if (!msg) return;
+
+    try {
+      await this.notificationSender.send({
+        patientId: rx.patientId,
+        type: 'prescription_update',
+        title: msg.title,
+        body: msg.body,
+        referenceType: 'prescription',
+        referenceId: rx.id,
+      });
+    } catch (err) {
+      this.logger.error(
+        `Failed to send prescription notification for ${rx.id} (status=${status})`,
+        (err as Error).stack,
+      );
+    }
   }
 
   private async buildPatientContext(patientId: string): Promise<PatientSafetyContext> {

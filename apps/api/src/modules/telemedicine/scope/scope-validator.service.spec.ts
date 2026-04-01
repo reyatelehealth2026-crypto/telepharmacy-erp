@@ -10,17 +10,38 @@ describe('ScopeValidatorService', () => {
   let mockAuditService: any;
 
   beforeEach(async () => {
-    // Mock database
+    // Track sequential query results
+    const queryResults: any[][] = [];
+    let callIndex = 0;
+
+    const nextResult = () => queryResults[callIndex++] || [];
+
+    // Create a thenable that also supports chaining
+    const makeThenableChain = (resolveFn: () => any[]) => {
+      const result: any = {
+        then: (resolve: any, reject?: any) => Promise.resolve(resolveFn()).then(resolve, reject),
+        orderBy: jest.fn(() => makeThenableChain(nextResult)),
+        limit: jest.fn(() => makeThenableChain(() => result._resolved || nextResult())),
+      };
+      return result;
+    };
+
     mockDb = {
       select: jest.fn().mockReturnThis(),
       from: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
+      where: jest.fn(() => makeThenableChain(nextResult)),
+      orderBy: jest.fn(() => makeThenableChain(nextResult)),
       insert: jest.fn().mockReturnThis(),
       values: jest.fn().mockReturnThis(),
-      returning: jest.fn(),
+      returning: jest.fn(() => Promise.resolve(nextResult())),
       update: jest.fn().mockReturnThis(),
       set: jest.fn().mockReturnThis(),
+    };
+
+    mockDb._setResults = (...results: any[][]) => {
+      queryResults.length = 0;
+      callIndex = 0;
+      results.forEach(r => queryResults.push(r));
     };
 
     // Mock audit service
@@ -58,25 +79,12 @@ describe('ScopeValidatorService', () => {
 
   describe('validateConsultationScope', () => {
     it('should pass validation for valid follow-up consultation', async () => {
-      // Mock active rules (empty for this test)
-      mockDb.returning.mockResolvedValueOnce([]);
-
-      // Mock patient history (follow-up patient)
-      mockDb.returning.mockResolvedValueOnce([
-        {
-          count: 5,
-          lastDate: new Date('2024-01-15'),
-        },
-      ]);
-
-      // Mock validation result insert
-      mockDb.returning.mockResolvedValueOnce([
-        {
-          id: 'validation-id-123',
-          consultationId: 'consultation-id-123',
-          overallResult: 'passed',
-        },
-      ]);
+      // Results: 1) loadActiveRules (empty), 2) getPatientHistory, 3) insert returning
+      mockDb._setResults(
+        [], // active rules (empty)
+        [{ count: 5, lastDate: new Date('2024-01-15') }], // patient history
+        [{ id: 'validation-id-123', consultationId: 'consultation-id-123', overallResult: 'passed' }], // insert returning
+      );
 
       const dto = {
         consultationId: 'consultation-id-123',
@@ -105,39 +113,22 @@ describe('ScopeValidatorService', () => {
     });
 
     it('should reject consultation with prohibited symptoms', async () => {
-      // Mock active rules with chest pain rule
-      mockDb.returning.mockResolvedValueOnce([
-        {
+      // Results: 1) loadActiveRules, 2) getPatientHistory, 3) insert returning
+      mockDb._setResults(
+        [{
           id: 'rule-1',
           ruleType: 'symptom_check',
           ruleName: 'Prohibit Chest Pain',
-          condition: {
-            prohibitedSymptoms: ['เจ็บหน้าอก', 'chest pain'],
-          },
+          condition: { prohibitedSymptoms: ['เจ็บหน้าอก', 'chest pain'] },
           action: 'reject',
           severity: 'critical',
           message: 'อาการเจ็บหน้าอกต้องไปโรงพยาบาล',
           priority: 5,
           isActive: true,
-        },
-      ]);
-
-      // Mock patient history
-      mockDb.returning.mockResolvedValueOnce([
-        {
-          count: 3,
-          lastDate: new Date('2024-01-15'),
-        },
-      ]);
-
-      // Mock validation result insert
-      mockDb.returning.mockResolvedValueOnce([
-        {
-          id: 'validation-id-456',
-          consultationId: 'consultation-id-456',
-          overallResult: 'rejected',
-        },
-      ]);
+        }],
+        [{ count: 3, lastDate: new Date('2024-01-15') }],
+        [{ id: 'validation-id-456', consultationId: 'consultation-id-456', overallResult: 'rejected' }],
+      );
 
       const dto = {
         consultationId: 'consultation-id-456',
@@ -161,39 +152,22 @@ describe('ScopeValidatorService', () => {
     });
 
     it('should reject consultation requesting controlled substances', async () => {
-      // Mock active rules with controlled substance rule
-      mockDb.returning.mockResolvedValueOnce([
-        {
+      // Results: 1) loadActiveRules, 2) getPatientHistory, 3) insert returning
+      mockDb._setResults(
+        [{
           id: 'rule-2',
           ruleType: 'medication_check',
           ruleName: 'Prohibit Controlled Substances',
-          condition: {
-            controlledSubstances: ['tramadol', 'alprazolam'],
-          },
+          condition: { controlledSubstances: ['tramadol', 'alprazolam'] },
           action: 'reject',
           severity: 'critical',
           message: 'ไม่สามารถจ่ายยาเสพติดให้โทษได้',
           priority: 1,
           isActive: true,
-        },
-      ]);
-
-      // Mock patient history
-      mockDb.returning.mockResolvedValueOnce([
-        {
-          count: 2,
-          lastDate: new Date('2024-01-10'),
-        },
-      ]);
-
-      // Mock validation result insert
-      mockDb.returning.mockResolvedValueOnce([
-        {
-          id: 'validation-id-789',
-          consultationId: 'consultation-id-789',
-          overallResult: 'rejected',
-        },
-      ]);
+        }],
+        [{ count: 2, lastDate: new Date('2024-01-10') }],
+        [{ id: 'validation-id-789', consultationId: 'consultation-id-789', overallResult: 'rejected' }],
+      );
 
       const dto = {
         consultationId: 'consultation-id-789',
@@ -221,39 +195,22 @@ describe('ScopeValidatorService', () => {
     });
 
     it('should flag new patient with acute symptoms for review', async () => {
-      // Mock active rules with patient type rule
-      mockDb.returning.mockResolvedValueOnce([
-        {
+      // Results: 1) loadActiveRules, 2) getPatientHistory (new patient), 3) insert returning
+      mockDb._setResults(
+        [{
           id: 'rule-3',
           ruleType: 'patient_type_check',
           ruleName: 'Reject New Patient with Acute Condition',
-          condition: {
-            rejectNewPatientWithAcute: true,
-          },
+          condition: { rejectNewPatientWithAcute: true },
           action: 'reject',
           severity: 'high',
           message: 'ผู้ป่วยใหม่ต้องพบแพทย์ก่อน',
           priority: 20,
           isActive: true,
-        },
-      ]);
-
-      // Mock patient history (new patient)
-      mockDb.returning.mockResolvedValueOnce([
-        {
-          count: 0,
-          lastDate: null,
-        },
-      ]);
-
-      // Mock validation result insert
-      mockDb.returning.mockResolvedValueOnce([
-        {
-          id: 'validation-id-101',
-          consultationId: 'consultation-id-101',
-          overallResult: 'rejected',
-        },
-      ]);
+        }],
+        [{ count: 0, lastDate: null }],
+        [{ id: 'validation-id-101', consultationId: 'consultation-id-101', overallResult: 'rejected' }],
+      );
 
       const dto = {
         consultationId: 'consultation-id-101',
@@ -282,13 +239,9 @@ describe('ScopeValidatorService', () => {
       const reason =
         'ผู้ป่วยมีประวัติการรักษาต่อเนื่องมา 2 ปี มีข้อมูล Lab ล่าสุดเมื่อ 8 เดือนที่แล้ว อาการคงที่ ไม่มีภาวะแทรกซ้อน';
 
-      mockDb.returning.mockResolvedValueOnce([
-        {
-          id: validationId,
-          overrideBy: pharmacistId,
-          overrideReason: reason,
-        },
-      ]);
+      mockDb._setResults(
+        [{ id: validationId, overrideBy: pharmacistId, overrideReason: reason }],
+      );
 
       await service.overrideValidation(validationId, pharmacistId, reason);
 
@@ -316,21 +269,12 @@ describe('ScopeValidatorService', () => {
     it('should return validation history for a consultation', async () => {
       const consultationId = 'consultation-id-123';
 
-      mockDb.returning.mockResolvedValueOnce([
-        {
-          id: 'validation-1',
-          consultationId,
-          overallResult: 'rejected',
-          createdAt: new Date('2024-01-15T10:00:00Z'),
-        },
-        {
-          id: 'validation-2',
-          consultationId,
-          overallResult: 'passed',
-          createdAt: new Date('2024-01-15T10:30:00Z'),
-          overrideBy: 'pharmacist-id-456',
-        },
-      ]);
+      mockDb._setResults(
+        [
+          { id: 'validation-1', consultationId, overallResult: 'rejected', createdAt: new Date('2024-01-15T10:00:00Z') },
+          { id: 'validation-2', consultationId, overallResult: 'passed', createdAt: new Date('2024-01-15T10:30:00Z'), overrideBy: 'pharmacist-id-456' },
+        ],
+      );
 
       const history = await service.getValidationHistory(consultationId);
 

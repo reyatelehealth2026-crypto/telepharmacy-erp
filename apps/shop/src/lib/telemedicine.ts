@@ -82,6 +82,25 @@ export async function acceptConsultationConsent(token: string, consultationId: s
   return api.post<{ success: boolean }>(`/v1/telemedicine/consultations/${consultationId}/accept-consent`, data, token);
 }
 
+// ── Chat Messages API ──────────────────────────────────────────────────────
+
+export interface ChatMessage {
+  id: string;
+  consultationId: string;
+  senderType: 'patient' | 'pharmacist' | 'system';
+  senderId?: string;
+  content: string;
+  createdAt: string;
+}
+
+export async function listConsultationMessages(token: string, consultationId: string) {
+  return api.get<{ data: ChatMessage[] }>(`/v1/telemedicine/consultations/${consultationId}/messages`, token);
+}
+
+export async function sendConsultationMessage(token: string, consultationId: string, content: string) {
+  return api.post<ChatMessage>(`/v1/telemedicine/consultations/${consultationId}/messages`, { content }, token);
+}
+
 // ── Video Session API ──────────────────────────────────────────────────────
 
 export async function getPatientToken(token: string, consultationId: string) {

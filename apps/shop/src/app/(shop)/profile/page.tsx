@@ -15,7 +15,10 @@ import {
   Loader2,
   User,
   Pencil,
-  Settings,
+  Phone,
+  Calendar,
+  MapPin,
+  BadgeCheck,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +34,36 @@ const TIER_EMOJI: Record<string, string> = {
   gold: '🥇',
   platinum: '💎',
 };
+
+const GENDER_LABEL: Record<string, string> = {
+  male: 'ชาย',
+  female: 'หญิง',
+  other: 'อื่นๆ',
+};
+
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return '-';
+  try {
+    return new Date(dateStr).toLocaleDateString('th-TH', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
+function formatAddress(profile: PatientProfile): string | null {
+  const parts = [
+    profile.address,
+    profile.subDistrict,
+    profile.district,
+    profile.province,
+    profile.postalCode,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(' ') : null;
+}
 
 export default function ProfilePage() {
   const { loading: authLoading } = useAuthGuard();
@@ -66,6 +99,10 @@ export default function ProfilePage() {
   const patientNo = profile?.patientNo ?? patient?.patientNo ?? '-';
   const loyaltyPoints = profile?.loyaltyPoints ?? 0;
   const tier = (profile?.loyaltyTier ?? 'bronze').toLowerCase();
+  const dob = profile?.birthDate ?? profile?.dateOfBirth ?? null;
+  const gender = profile?.gender ?? null;
+  const phone = profile?.phone ?? null;
+  const addressStr = profile ? formatAddress(profile) : null;
 
   const menuItems = [
     {
@@ -89,7 +126,7 @@ export default function ProfilePage() {
       badge: counts.diseases > 0 ? `${counts.diseases} รายการ` : undefined,
       color: 'text-purple-500',
     },
-    { href: '/rx/status', icon: FileText, label: 'ใบสั่งยาของฉัน', color: 'text-green-500' },
+    { href: '/rx', icon: FileText, label: 'ใบสั่งยาของฉัน', color: 'text-green-500' },
     { href: '/orders', icon: Clock, label: 'ประวัติสั่งซื้อ', color: 'text-amber-500' },
     {
       href: '/profile/loyalty',
@@ -98,6 +135,7 @@ export default function ProfilePage() {
       badge: loyaltyPoints > 0 ? `${loyaltyPoints.toLocaleString()} แต้ม` : undefined,
       color: 'text-yellow-500',
     },
+    { href: '/profile/kyc', icon: BadgeCheck, label: 'ยืนยันตัวตน (KYC)', color: 'text-teal-500' },
     { href: '/profile/notifications', icon: Bell, label: 'ตั้งค่าการแจ้งเตือน', color: 'text-indigo-500' },
     { href: '/notifications', icon: Bell, label: 'ประวัติการแจ้งเตือน', color: 'text-indigo-500' },
     { href: '/profile/pdpa', icon: Shield, label: 'ความเป็นส่วนตัว (PDPA)', color: 'text-gray-500' },
@@ -135,8 +173,51 @@ export default function ProfilePage() {
         </div>
       </div>
 
+      {/* Personal Info Section */}
+      {!loading && profile && (
+        <div className="mx-4 -mt-4 rounded-xl bg-white p-4 shadow-sm border space-y-2">
+          {dob && (
+            <div className="flex items-center gap-2 text-sm">
+              <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="text-muted-foreground">วันเกิด:</span>
+              <span>{formatDate(dob)}</span>
+              {profile.age != null && (
+                <span className="text-muted-foreground">({profile.age} ปี)</span>
+              )}
+            </div>
+          )}
+          {gender && (
+            <div className="flex items-center gap-2 text-sm">
+              <User className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="text-muted-foreground">เพศ:</span>
+              <span>{GENDER_LABEL[gender] ?? gender}</span>
+            </div>
+          )}
+          {phone && (
+            <div className="flex items-center gap-2 text-sm">
+              <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="text-muted-foreground">โทรศัพท์:</span>
+              <span>{phone}</span>
+            </div>
+          )}
+          {addressStr && (
+            <div className="flex items-start gap-2 text-sm">
+              <MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+              <span className="text-muted-foreground shrink-0">ที่อยู่:</span>
+              <span className="line-clamp-2">{addressStr}</span>
+            </div>
+          )}
+          {!dob && !gender && !phone && !addressStr && (
+            <Link href="/profile/edit" className="flex items-center gap-2 text-sm text-primary">
+              <Pencil className="h-4 w-4" />
+              เพิ่มข้อมูลส่วนตัว
+            </Link>
+          )}
+        </div>
+      )}
+
       {/* Quick Stats */}
-      <div className="grid grid-cols-3 gap-3 px-4 -mt-4">
+      <div className={`grid grid-cols-3 gap-3 px-4 ${!loading && profile && (dob || gender || phone || addressStr) ? 'mt-3' : '-mt-4'}`}>
         <div className="rounded-xl bg-white p-3 text-center shadow-sm border">
           <p className="text-lg font-bold text-primary">-</p>
           <p className="text-xs text-muted-foreground">ออเดอร์</p>

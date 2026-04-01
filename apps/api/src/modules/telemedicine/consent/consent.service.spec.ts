@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { EConsentService } from './consent.service';
-import { MinioService } from '../kyc/minio.service';
+import { MinioStorageService } from '../kyc/minio.service';
 import { PdfService } from './pdf.service';
 import { DRIZZLE } from '../../../database/database.constants';
 
@@ -53,7 +53,7 @@ describe('EConsentService', () => {
       providers: [
         EConsentService,
         { provide: DRIZZLE, useValue: mockDb },
-        { provide: MinioService, useValue: mockMinioService },
+        { provide: MinioStorageService, useValue: mockMinioService },
         { provide: PdfService, useValue: mockPdfService },
         { provide: ConfigService, useValue: mockConfigService },
       ],
@@ -128,7 +128,8 @@ describe('EConsentService', () => {
 
       mockDb.limit
         .mockResolvedValueOnce([mockConsent]) // First call for consent
-        .mockResolvedValueOnce([mockTemplate]); // Second call for template
+        .mockResolvedValueOnce([mockTemplate]) // Second call for template check
+        .mockResolvedValueOnce([mockTemplate]); // Third call for mapConsentToDto template fetch
 
       const result = await service.getConsentStatus('patient-123');
 

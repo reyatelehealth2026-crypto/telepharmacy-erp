@@ -4,6 +4,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { SystemConfigService } from './system-config.service';
+import { DynamicConfigService } from './dynamic-config.service';
 
 /**
  * Defines which keys each integration group supports.
@@ -75,7 +76,10 @@ const INTEGRATION_GROUPS: Record<string, { fields: string[]; envMap: Record<stri
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('super_admin')
 export class SystemConfigController {
-  constructor(private readonly configService: SystemConfigService) {}
+  constructor(
+    private readonly configService: SystemConfigService,
+    private readonly dynamicConfig: DynamicConfigService,
+  ) {}
 
   @Get()
   async getAll() {
@@ -178,6 +182,8 @@ export class SystemConfigController {
       .map(([k, v]) => ({ key: `${group}.${k}`, value: v }));
 
     await this.configService.setManySkipMasked(entries, user.id);
+    // Invalidate DynamicConfigService cache so new values take effect immediately
+    this.dynamicConfig.invalidate();
     return { success: true, message: 'บันทึกเรียบร้อย' };
   }
 }

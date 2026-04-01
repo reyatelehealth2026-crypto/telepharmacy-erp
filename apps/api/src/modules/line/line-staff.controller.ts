@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
   Param,
   Body,
   Query,
@@ -19,6 +20,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RichMenuService } from './services/rich-menu.service';
 import { BroadcastService } from './services/broadcast.service';
+import { InboxService } from './services/inbox.service';
 import { CreateBroadcastSchema, type CreateBroadcastDto } from './dto/create-broadcast.dto';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { ConfigService } from '@nestjs/config';
@@ -32,6 +34,7 @@ export class LineStaffController {
   constructor(
     private readonly richMenuService: RichMenuService,
     private readonly broadcastService: BroadcastService,
+    private readonly inboxService: InboxService,
     private readonly config: ConfigService,
   ) {
     this.shopUrl = this.config.get<string>('NEXT_PUBLIC_SHOP_URL') ?? 'https://shop.re-ya.com';
@@ -92,5 +95,48 @@ export class LineStaffController {
   @Get('broadcast/:id')
   async getBroadcast(@Param('id', ParseUUIDPipe) id: string) {
     return this.broadcastService.getCampaign(id);
+  }
+
+  // ─── Inbox (Chat Sessions) ────────────────────────────────
+
+  @Get('inbox')
+  async listSessions(
+    @Query('status') status?: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
+    @Query('limit', new DefaultValuePipe(30), ParseIntPipe) limit?: number,
+  ) {
+    return this.inboxService.listSessions({ status, page: page!, limit: limit! });
+  }
+
+  @Get('inbox/:sessionId')
+  async getSessionMessages(
+    @Param('sessionId', ParseUUIDPipe) sessionId: string,
+    @Query('limit', new DefaultValuePipe(100), ParseIntPipe) limit?: number,
+  ) {
+    return this.inboxService.getSessionMessages(sessionId, limit!);
+  }
+
+  @Post('inbox/:sessionId/reply')
+  async staffReply(
+    @Param('sessionId', ParseUUIDPipe) sessionId: string,
+    @Body() body: { content: string },
+    @CurrentUser() user: any,
+  ) {
+    return this.inboxService.staffReply(sessionId, body.content, user.id);
+  }
+
+  @Patch('inbox/:sessionId/assign')
+  async assignSession(
+    @Param('sessionId', ParseUUIDPipe) sessionId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.inboxService.assignSession(sessionId, user.id);
+  }
+
+  @Patch('inbox/:sessionId/resolve')
+  async resolveSession(
+    @Param('sessionId', ParseUUIDPipe) sessionId: string,
+  ) {
+    return this.inboxService.resolveSession(sessionId);
   }
 }

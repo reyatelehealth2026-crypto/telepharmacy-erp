@@ -5,19 +5,20 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Package, Truck, CheckCircle, Clock, XCircle, ClipboardList, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/store/auth';
-import { getMyOrders, type Order } from '@/lib/orders';
-import { formatPrice } from '@/lib/utils';
+import { getMyOrders, type Order, type OrderStatus } from '@/lib/orders';
+import { formatPrice, formatDate } from '@/lib/utils';
 
-const statusConfig: Record<string, { label: string; color: string; icon: typeof Package }> = {
-  awaiting_payment: { label: 'รอชำระเงิน', color: 'text-amber-600', icon: Clock },
-  paid: { label: 'ชำระแล้ว', color: 'text-blue-600', icon: CheckCircle },
-  processing: { label: 'กำลังเตรียม', color: 'text-blue-600', icon: Package },
-  packed: { label: 'แพ็คแล้ว', color: 'text-indigo-600', icon: Package },
-  shipped: { label: 'จัดส่งแล้ว', color: 'text-purple-600', icon: Truck },
-  delivered: { label: 'ส่งถึงแล้ว', color: 'text-green-600', icon: CheckCircle },
-  completed: { label: 'เสร็จสิ้น', color: 'text-green-600', icon: CheckCircle },
-  cancelled: { label: 'ยกเลิก', color: 'text-red-600', icon: XCircle },
+const statusConfig: Record<OrderStatus, { label: string; badgeClass: string; icon: typeof Package }> = {
+  awaiting_payment: { label: 'รอชำระเงิน', badgeClass: 'bg-amber-100 text-amber-800', icon: Clock },
+  paid: { label: 'ชำระแล้ว', badgeClass: 'bg-blue-100 text-blue-800', icon: CheckCircle },
+  processing: { label: 'กำลังเตรียม', badgeClass: 'bg-blue-100 text-blue-800', icon: Package },
+  packed: { label: 'แพ็คแล้ว', badgeClass: 'bg-indigo-100 text-indigo-800', icon: Package },
+  shipped: { label: 'จัดส่งแล้ว', badgeClass: 'bg-purple-100 text-purple-800', icon: Truck },
+  delivered: { label: 'ส่งถึงแล้ว', badgeClass: 'bg-emerald-100 text-emerald-800', icon: CheckCircle },
+  completed: { label: 'เสร็จสิ้น', badgeClass: 'bg-emerald-100 text-emerald-800', icon: CheckCircle },
+  cancelled: { label: 'ยกเลิก', badgeClass: 'bg-red-100 text-red-800', icon: XCircle },
 };
 
 export default function OrdersPage() {
@@ -50,11 +51,14 @@ export default function OrdersPage() {
     <div>
       <div className="px-4 pt-4">
         <h1 className="text-lg font-bold">ประวัติคำสั่งซื้อ</h1>
+        {orders.length > 0 && (
+          <p className="mt-1 text-xs text-muted-foreground">{orders.length} รายการ</p>
+        )}
       </div>
 
-      <div className="mt-4 space-y-3 px-4">
+      <div className="mt-4 space-y-3 px-4 pb-6">
         {orders.map((order) => {
-          const config = statusConfig[order.status] ?? { label: 'กำลังเตรียม', color: 'text-blue-600', icon: Package };
+          const config = statusConfig[order.status] ?? statusConfig.processing;
           const Icon = config.icon;
           return (
             <Link
@@ -64,13 +68,13 @@ export default function OrdersPage() {
             >
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">{order.orderNo}</span>
-                <div className={`flex items-center gap-1 text-xs font-medium ${config.color}`}>
-                  <Icon className="h-3.5 w-3.5" />
+                <Badge className={config.badgeClass}>
+                  <Icon className="mr-1 h-3 w-3" />
                   {config.label}
-                </div>
+                </Badge>
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {new Date(order.createdAt).toLocaleDateString('th-TH')} · {order.items.length} รายการ
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                {formatDate(order.createdAt)} · {order.items.length} รายการ
               </p>
               <div className="mt-2 flex items-center justify-between">
                 <span className="text-sm font-bold">{formatPrice(order.totalAmount)}</span>

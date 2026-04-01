@@ -1,4 +1,4 @@
-import { Injectable, Inject, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Inject, Logger, NotFoundException, BadRequestException, Optional } from '@nestjs/common';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import {
   orders,
@@ -11,6 +11,8 @@ import { DRIZZLE } from '../../database/database.constants';
 import { InventoryService } from '../inventory/inventory.service';
 import { PaymentService } from '../payment/payment.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
+import { NotificationSenderService } from '../notifications/notification-sender.service';
+import { EventsService } from '../events/events.service';
 import type { CreateOtcOrderDto } from './dto/create-otc-order.dto';
 import type { ShipOrderDto } from './dto/ship-order.dto';
 import type { ShippingWebhookDto } from './dto/shipping-webhook.dto';
@@ -24,6 +26,8 @@ export class OrdersService {
     private readonly inventoryService: InventoryService,
     private readonly paymentService: PaymentService,
     private readonly loyaltyService: LoyaltyService,
+    private readonly notificationSender: NotificationSenderService,
+    @Optional() private readonly eventsService?: EventsService,
   ) {}
 
   /**
@@ -383,6 +387,25 @@ export class OrdersService {
       .where(eq(orders.id, id));
 
     this.logger.log(`Order ${id} status updated to ${status} by staff ${staffId}`);
+
+    // Trigger notification for key status changes
+    if (['paid', 'shipped', 'delivered'].includes(status) && order.patientId) {
+      await this.sendOrderNotification(order, status);
+    }
+
+    // Emit real-time WebSocket event for admin dashboard
+    try {
+      this.eventsService?.emitOrderUpdate({
+        id,
+        status,
+        patientId: order.patientId,
+        orderNo: order.orderNo,
+        updatedBy: staffId,
+      });
+    } catch (err) {
+      this.logger.error(`Failed to emit order:update for ${id}`, (err as Error).stack);
+    }
+
     return { success: true, status };
   }
 
@@ -442,6 +465,25 @@ export class OrdersService {
 
     this.logger.log(`Order ${id} shipped via ${dto.provider}, tracking: ${dto.trackingNo}`);
 
+    // Trigger notification for shipped status
+    if (order.patientId) {
+      await this.sendOrderNotification(order, 'shipped');
+    }
+
+    // Emit real-time WebSocket event for admin dashboard
+    try {
+      this.eventsService?.emitOrderUpdate({
+        id,
+        status: 'shipped',
+        patientId: order.patientId,
+        orderNo: order.orderNo,
+        trackingNo: dto.trackingNo,
+        provider: dto.provider,
+      });
+    } catch (err) {
+      this.logger.error(`Failed to emit order:update for ${id}`, (err as Error).stack);
+    }
+
     return { success: true, data: delivery };
   }
 
@@ -492,6 +534,23 @@ export class OrdersService {
       }
     }
 
+    // Trigger notification for delivered status
+    if (order.patientId) {
+      await this.sendOrderNotification(order, 'delivered');
+    }
+
+    // Emit real-time WebSocket event for admin dashboard
+    try {
+      this.eventsService?.emitOrderUpdate({
+        id,
+        status: 'delivered',
+        patientId: order.patientId,
+        orderNo: order.orderNo,
+      });
+    } catch (err) {
+      this.logger.error(`Failed to emit order:update for ${id}`, (err as Error).stack);
+    }
+
     this.logger.log(`Order ${id} marked as delivered`);
     return { success: true, orderId: id, patientId: order.patientId, totalAmount: order.totalAmount };
   }
@@ -537,6 +596,46 @@ export class OrdersService {
   }
 
   // --- Private helpers ---
+
+  /**
+   * Send a notification to the patient when order status changes to paid/shipped/delivered.
+   * Wrapped in try/catch so notification failures don't break the main flow.
+   */
+  private async sendOrderNotification(order: any, status: string) {
+    const statusMessages: Record<string, { title: string; body: string }> = {
+      paid: {
+        title: 'ชำระเงินสำเร็จ',
+        body: `คำสั่งซื้อ ${order.orderNo} ชำระเงินเรียบร้อยแล้ว`,
+      },
+      shipped: {
+        title: 'จัดส่งแล้ว',
+        body: `คำสั่งซื้อ ${order.orderNo} ถูกจัดส่งแล้ว`,
+      },
+      delivered: {
+        title: 'จัดส่งสำเร็จ',
+        body: `คำสั่งซื้อ ${order.orderNo} จัดส่งถึงปลายทางแล้ว`,
+      },
+    };
+
+    const msg = statusMessages[status];
+    if (!msg) return;
+
+    try {
+      await this.notificationSender.send({
+        patientId: order.patientId,
+        type: 'order_update',
+        title: msg.title,
+        body: msg.body,
+        referenceType: 'order',
+        referenceId: order.id,
+      });
+    } catch (err) {
+      this.logger.error(
+        `Failed to send order notification for ${order.id} (status=${status})`,
+        (err as Error).stack,
+      );
+    }
+  }
 
   private async getOrderEntity(id: string, patientId?: string) {
     const conditions = [eq(orders.id, id)];
@@ -609,6 +708,12 @@ export class OrdersService {
         .set({ status: 'paid', paidAt: new Date(), internalNotes: notes })
         .where(eq(orders.id, orderId));
       this.logger.log(`Slip verified for order ${orderId} by staff ${staffId}`);
+
+      // Trigger notification for paid status
+      if (order.patientId) {
+        await this.sendOrderNotification(order, 'paid');
+      }
+
       return { success: true, message: 'อนุมัติสลิปเรียบร้อย' };
     } else {
       await this.db

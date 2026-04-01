@@ -25,9 +25,11 @@
     "@nestjs/mapped-types": "^2.1.0",
     "@nestjs/passport": "^11",
     "@nestjs/platform-express": "^11.1",
+    "@nestjs/platform-socket.io": "^11.1.17",
     "@nestjs/swagger": "^11.0.0",
     "@nestjs/terminus": "^11",
     "@nestjs/throttler": "^6",
+    "@nestjs/websockets": "^11.1.17",
     "@telepharmacy/ai": "workspace:*",
     "@telepharmacy/db": "workspace:*",
     "@telepharmacy/shared": "workspace:*",
@@ -53,6 +55,7 @@
     "postgres": "^3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7",
+    "socket.io": "^4.8.3",
     "zod": "^3"
   },
   "jest": {

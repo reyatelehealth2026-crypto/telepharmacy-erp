@@ -13,17 +13,19 @@ import {
   AlertTriangle,
   Stethoscope,
   Loader2,
+  ShieldAlert,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { sendAiChat } from '@/lib/ai-chat';
-import { useAuthStore } from '@/store/auth';
 import { useAuthGuard } from '@/lib/use-auth-guard';
 
 interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  shouldTransfer?: boolean;
+  transferReason?: string;
   recommendations?: Array<{
     type: 'drug' | 'advice';
     name: string;
@@ -51,10 +53,17 @@ export default function AIChatbotPage() {
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showTransferBanner, setShowTransferBanner] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Check if any message has shouldTransfer flag
+  useEffect(() => {
+    const hasTransfer = messages.some((m) => m.shouldTransfer);
+    setShowTransferBanner(hasTransfer);
   }, [messages]);
 
   const handleSend = async () => {
@@ -100,8 +109,8 @@ export default function AIChatbotPage() {
       if (response.shouldTransfer) {
         recommendations.push({
           type: 'advice',
-          name: 'แนะนำ',
-          description: 'ควรปรึกษาเภสัชกรโดยตรง',
+          name: 'แนะนำปรึกษาเภสัชกร',
+          description: response.transferReason || 'อาการของคุณควรได้รับคำปรึกษาจากเภสัชกรโดยตรง',
         });
       }
 
@@ -109,6 +118,8 @@ export default function AIChatbotPage() {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: response.message,
+        shouldTransfer: response.shouldTransfer,
+        transferReason: response.transferReason,
         ...(recommendations.length > 0 ? { recommendations } : {}),
       };
 
@@ -152,13 +163,47 @@ export default function AIChatbotPage() {
         <Badge variant="secondary" className="text-[10px]">Beta</Badge>
       </div>
 
-      {/* Disclaimer */}
-      <div className="bg-amber-50 px-4 py-2 text-center">
-        <p className="text-[10px] text-amber-700">
-          <AlertTriangle className="inline h-3 w-3 mr-1" />
-          AI นี้ไม่สามารถวินิจฉัยโรคหรือทดแทนการพบแพทย์ได้
-        </p>
+      {/* Disclaimer Banner */}
+      <div className="bg-amber-50 px-4 py-2">
+        <div className="flex items-start gap-2">
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+          <div>
+            <p className="text-[11px] font-medium text-amber-800">
+              คำแนะนำจาก AI ไม่สามารถทดแทนการปรึกษาเภสัชกร
+            </p>
+            <p className="text-[10px] text-amber-600">
+              ข้อมูลนี้เป็นเพียงคำแนะนำเบื้องต้น ไม่ใช่การวินิจฉัยโรค กรุณาปรึกษาเภสัชกรหรือแพทย์สำหรับอาการที่รุนแรง
+            </p>
+          </div>
+        </div>
       </div>
+
+      {/* Pharmacist Transfer Banner — shown when AI detects symptoms needing pharmacist */}
+      {showTransferBanner && (
+        <div className="bg-red-50 border-b border-red-200 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100">
+              <Stethoscope className="h-5 w-5 text-red-600" />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs font-semibold text-red-800">
+                AI แนะนำให้ปรึกษาเภสัชกร
+              </p>
+              <p className="text-[10px] text-red-600">
+                อาการของคุณอาจต้องการคำปรึกษาจากผู้เชี่ยวชาญ
+              </p>
+            </div>
+            <Button
+              size="sm"
+              className="shrink-0 bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => router.push('/consultation')}
+            >
+              <Stethoscope className="h-3.5 w-3.5 mr-1" />
+              ปรึกษาเภสัชกร
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
@@ -194,18 +239,32 @@ export default function AIChatbotPage() {
                       className={`rounded-lg p-2 text-xs ${
                         rec.type === 'drug'
                           ? 'bg-blue-50 text-blue-800'
-                          : rec.type === 'advice'
-                          ? 'bg-amber-50 text-amber-800'
-                          : 'bg-muted'
+                          : 'bg-amber-50 text-amber-800'
                       }`}
                     >
                       <div className="flex items-center gap-1 font-medium">
                         {rec.type === 'drug' && <Pill className="h-3 w-3" />}
+                        {rec.type === 'advice' && <AlertTriangle className="h-3 w-3" />}
                         {rec.name}
                       </div>
                       <p className="opacity-80">{rec.description}</p>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* Inline pharmacist button when AI detects transfer needed */}
+              {msg.shouldTransfer && (
+                <div className="mt-3">
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="w-full"
+                    onClick={() => router.push('/consultation')}
+                  >
+                    <Stethoscope className="h-4 w-4 mr-1.5" />
+                    ปรึกษาเภสัชกร
+                  </Button>
                 </div>
               )}
             </div>
@@ -257,15 +316,9 @@ export default function AIChatbotPage() {
             <Send className="h-4 w-4" />
           </Button>
         </div>
-        <div className="mt-2 flex items-center justify-center gap-2">
-          <Link
-            href="/chat"
-            className="text-xs text-primary flex items-center gap-1"
-          >
-            <Stethoscope className="h-3 w-3" />
-            ปรึกษาเภสัชกรจริง
-          </Link>
-        </div>
+        <p className="mt-2 text-center text-[10px] text-muted-foreground">
+          AI ให้คำแนะนำเบื้องต้นเท่านั้น ไม่ใช่การวินิจฉัยโรค
+        </p>
       </div>
     </div>
   );
