@@ -40,7 +40,7 @@ export async function syncAddresses(token: string) {
     // Replace local addresses with server data
     useAddressStore.setState({
       addresses,
-      selectedId: addresses.find(a => a.isDefault)?.id ?? addresses[0]?.id ?? null,
+      selectedId: addresses.find((a: any) => a.isDefault)?.id ?? addresses[0]?.id ?? null,
     });
     return addresses;
   } catch {
