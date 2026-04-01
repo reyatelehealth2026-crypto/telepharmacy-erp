@@ -64,7 +64,7 @@ export default function LoyaltyPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-emerald-100">แต้มสะสมของคุณ</p>
-                <p className="mt-1 text-4xl font-bold">{points.toLocaleString()}</p>
+                <p className="mt-1 text-4xl font-bold">{(points ?? 0).toLocaleString()}</p>
                 <p className="text-sm text-emerald-200">แต้ม</p>
               </div>
               <div className={`flex h-16 w-16 items-center justify-center rounded-full ${tierConfig.bg}`}>
@@ -74,7 +74,7 @@ export default function LoyaltyPage() {
             <div className="mt-4">
               <div className="flex items-center justify-between text-xs text-emerald-200 mb-1">
                 <span>ระดับ {tierConfig.label}</span>
-                {tierConfig.next && <span>ต้องการ {tierConfig.nextAt.toLocaleString()} แต้ม → {tierConfig.next}</span>}
+                {tierConfig.next && <span>ต้องการ {(tierConfig.nextAt ?? 0).toLocaleString()} แต้ม → {tierConfig.next}</span>}
               </div>
               <div className="h-2 rounded-full bg-white/20">
                 <div
@@ -164,7 +164,7 @@ export default function LoyaltyPage() {
                       </p>
                     </div>
                     <span className={`text-sm font-bold ${tx.points > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                      {tx.points > 0 ? '+' : ''}{tx.points.toLocaleString()}
+                      {tx.points > 0 ? '+' : ''}{(tx.points ?? 0).toLocaleString()}
                     </span>
                   </div>
                 ))

@@ -110,7 +110,7 @@ export default function ProductsPage() {
               <>
                 <span className="font-medium text-foreground">{activeLabel}</span>
                 {' - '}
-                {total.toLocaleString()} รายการ
+                {(total ?? 0).toLocaleString()} รายการ
               </>
             )}
           </p>

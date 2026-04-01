@@ -132,7 +132,7 @@ export default function ProfilePage() {
       href: '/profile/loyalty',
       icon: Star,
       label: 'แต้มสะสม',
-      badge: loyaltyPoints > 0 ? `${loyaltyPoints.toLocaleString()} แต้ม` : undefined,
+      badge: loyaltyPoints > 0 ? `${(loyaltyPoints ?? 0).toLocaleString()} แต้ม` : undefined,
       color: 'text-yellow-500',
     },
     { href: '/profile/kyc', icon: BadgeCheck, label: 'ยืนยันตัวตน (KYC)', color: 'text-teal-500' },
@@ -160,7 +160,7 @@ export default function ProfilePage() {
                 {TIER_EMOJI[tier]} {tier.charAt(0).toUpperCase() + tier.slice(1)}
               </Badge>
               {loyaltyPoints > 0 && (
-                <span className="text-xs text-emerald-200">{loyaltyPoints.toLocaleString()} แต้ม</span>
+                <span className="text-xs text-emerald-200">{(loyaltyPoints ?? 0).toLocaleString()} แต้ม</span>
               )}
             </div>
           </div>

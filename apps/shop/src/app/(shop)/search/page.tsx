@@ -320,7 +320,7 @@ function SearchPageInner() {
                 <Loader2 className="h-3 w-3 animate-spin" /> กำลังค้นหา...
               </span>
             ) : (
-              `พบ ${total.toLocaleString()} รายการ`
+              `พบ ${(total ?? 0).toLocaleString()} รายการ`
             )}
           </p>
           <select
