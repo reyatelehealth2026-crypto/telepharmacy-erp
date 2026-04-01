@@ -9,7 +9,7 @@ import {
 import { ContentService } from './content.service';
 import { QueryContentDto } from './dto/query-content.dto';
 
-@Controller('v1/content')
+@Controller('content')
 export class ContentController {
   constructor(private readonly contentService: ContentService) {}
 

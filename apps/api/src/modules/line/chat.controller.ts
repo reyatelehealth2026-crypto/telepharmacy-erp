@@ -15,7 +15,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../auth/interfaces';
 
-@Controller('v1/chat')
+@Controller('chat')
 @UseGuards(JwtAuthGuard)
 export class ChatController {
   constructor(private readonly chatService: ChatService) {}

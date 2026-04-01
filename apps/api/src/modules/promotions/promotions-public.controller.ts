@@ -4,7 +4,7 @@ import { ValidateCouponDto } from './dto/validate-coupon.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
-@Controller('v1/orders')
+@Controller('orders')
 @UseGuards(JwtAuthGuard)
 export class PromotionsPublicController {
   constructor(private readonly promotionsService: PromotionsService) {}

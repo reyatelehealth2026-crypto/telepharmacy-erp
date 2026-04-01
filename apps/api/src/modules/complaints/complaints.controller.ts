@@ -13,7 +13,7 @@ import { CreateComplaintDto } from './dto/create-complaint.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
-@Controller('v1/complaints')
+@Controller('complaints')
 @UseGuards(JwtAuthGuard)
 export class ComplaintsController {
   constructor(private readonly complaintsService: ComplaintsService) {}

@@ -20,7 +20,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
-@Controller('v1/staff/content')
+@Controller('staff/content')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('super_admin', 'marketing', 'pharmacist')
 export class ContentStaffController {

@@ -16,7 +16,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
-@Controller('v1/staff/complaints')
+@Controller('staff/complaints')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('super_admin', 'pharmacist', 'customer_service')
 export class ComplaintsStaffController {

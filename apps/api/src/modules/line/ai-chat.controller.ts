@@ -3,7 +3,7 @@ import { chatWithPatientSync } from '@telepharmacy/ai';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
-@Controller('v1/ai')
+@Controller('ai')
 @UseGuards(JwtAuthGuard)
 export class AiChatController {
   @Post('chat')
