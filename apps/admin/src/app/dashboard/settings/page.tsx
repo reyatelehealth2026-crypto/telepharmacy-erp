@@ -1,14 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Settings, Shield, Bell, Database, Save, UserPlus, RefreshCw, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Settings, Shield, Bell, Database, Save, UserPlus, RefreshCw, CheckCircle, XCircle, Loader2, Plug, Eye, EyeOff } from 'lucide-react';
 import { PageHeader } from '@/components/page-header';
 import { api } from '@/lib/api-client';
 import { useApi } from '@/lib/use-api';
 
 export default function SettingsPage() {
   const [tab, setTab] = useState('general');
-  const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
   const [msgType, setMsgType] = useState<'success' | 'error'>('success');
 
@@ -20,6 +19,7 @@ export default function SettingsPage() {
     { id: 'general', I: Settings, l: 'ทั่วไป' },
     { id: 'staff', I: Shield, l: 'Staff' },
     { id: 'noti', I: Bell, l: 'แจ้งเตือน' },
+    { id: 'integrations', I: Plug, l: 'Integrations' },
     { id: 'sys', I: Database, l: 'ระบบ' },
   ];
 
@@ -41,6 +41,7 @@ export default function SettingsPage() {
           {tab === 'general' && <GeneralTab showMsg={showMsg} />}
           {tab === 'staff' && <StaffTab showMsg={showMsg} />}
           {tab === 'noti' && <NotificationTab showMsg={showMsg} />}
+          {tab === 'integrations' && <IntegrationsTab showMsg={showMsg} />}
           {tab === 'sys' && <SystemTab showMsg={showMsg} />}
         </div>
       </div>
@@ -213,5 +214,176 @@ function SystemTab({ showMsg }: { showMsg: (t: string, type?: 'success' | 'error
         </div>
       </div>
     </>
+  );
+}
+
+// ─── Integration Groups Config ──────────────────────────────────
+
+const INTEGRATION_LABELS: Record<string, { title: string; description: string; fields: { key: string; label: string; sensitive?: boolean; placeholder?: string }[] }> = {
+  line: {
+    title: 'LINE Messaging API',
+    description: 'ตั้งค่า LINE Channel สำหรับ Messaging และ LIFF',
+    fields: [
+      { key: 'channelAccessToken', label: 'Channel Access Token', sensitive: true },
+      { key: 'channelSecret', label: 'Channel Secret', sensitive: true },
+      { key: 'channelId', label: 'Channel ID' },
+      { key: 'liffId', label: 'LIFF ID' },
+    ],
+  },
+  odoo: {
+    title: 'Odoo ERP',
+    description: 'เชื่อมต่อ Odoo สำหรับ sync สินค้าและสต็อก',
+    fields: [
+      { key: 'baseUrl', label: 'Base URL', placeholder: 'https://erp.example.com' },
+      { key: 'apiUser', label: 'API User (Email)' },
+      { key: 'apiToken', label: 'API Token', sensitive: true },
+      { key: 'syncIntervalMs', label: 'Sync Interval (ms)', placeholder: '1800000' },
+      { key: 'stockCacheTtlSec', label: 'Stock Cache TTL (sec)', placeholder: '300' },
+    ],
+  },
+  payment: {
+    title: 'Omise Payment',
+    description: 'ตั้งค่า Omise สำหรับ PromptPay QR Payment',
+    fields: [
+      { key: 'omisePublicKey', label: 'Public Key', placeholder: 'pkey_...' },
+      { key: 'omiseSecretKey', label: 'Secret Key', sensitive: true },
+    ],
+  },
+  ai: {
+    title: 'Gemini AI',
+    description: 'ตั้งค่า Google Gemini API สำหรับ AI Chatbot และ OCR',
+    fields: [
+      { key: 'geminiApiKey', label: 'API Key', sensitive: true },
+    ],
+  },
+  meilisearch: {
+    title: 'Meilisearch',
+    description: 'ตั้งค่า Search Engine',
+    fields: [
+      { key: 'host', label: 'Host URL', placeholder: 'http://localhost:7700' },
+      { key: 'masterKey', label: 'Master Key', sensitive: true },
+    ],
+  },
+  telemedicine: {
+    title: 'Telemedicine Services',
+    description: 'ตั้งค่า Agora, AWS Rekognition, ThaiSMS สำหรับ Telemedicine',
+    fields: [
+      { key: 'agoraAppId', label: 'Agora App ID' },
+      { key: 'agoraAppCertificate', label: 'Agora App Certificate', sensitive: true },
+      { key: 'awsRegion', label: 'AWS Region', placeholder: 'ap-southeast-1' },
+      { key: 'awsAccessKeyId', label: 'AWS Access Key ID' },
+      { key: 'awsSecretAccessKey', label: 'AWS Secret Access Key', sensitive: true },
+      { key: 'thaiSmsApiKey', label: 'ThaiSMS API Key', sensitive: true },
+      { key: 'thaiSmsSender', label: 'ThaiSMS Sender Name', placeholder: 'Telepharmacy' },
+      { key: 'auditEncryptionKey', label: 'Audit Encryption Key', sensitive: true },
+      { key: 'pharmacyCouncilApiKey', label: 'Pharmacy Council API Key', sensitive: true },
+    ],
+  },
+};
+
+function IntegrationsTab({ showMsg }: { showMsg: (t: string, type?: 'success' | 'error') => void }) {
+  const [activeGroup, setActiveGroup] = useState<string | null>(null);
+
+  return (
+    <>
+      <h2 className="text-lg font-semibold">ตั้งค่า Integrations</h2>
+      <p className="text-sm text-muted-foreground">จัดการ API Keys และ Tokens ต่างๆ ผ่านหน้านี้ ไม่ต้องแก้ไฟล์ .env บน server</p>
+      <div className="space-y-3">
+        {Object.entries(INTEGRATION_LABELS).map(([group, info]) => (
+          <div key={group} className="rounded-lg border">
+            <button
+              onClick={() => setActiveGroup(activeGroup === group ? null : group)}
+              className="flex w-full items-center justify-between p-4 text-left hover:bg-muted/50"
+            >
+              <div>
+                <p className="font-medium text-sm">{info.title}</p>
+                <p className="text-xs text-muted-foreground">{info.description}</p>
+              </div>
+              <span className="text-xs text-muted-foreground">{activeGroup === group ? '▲' : '▼'}</span>
+            </button>
+            {activeGroup === group && (
+              <IntegrationGroupForm group={group} fields={info.fields} showMsg={showMsg} />
+            )}
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+interface FieldDef { key: string; label: string; sensitive?: boolean; placeholder?: string }
+interface FieldData { value: unknown; source: 'db' | 'env' | 'unset'; envVar: string }
+
+function IntegrationGroupForm({ group, fields, showMsg }: { group: string; fields: FieldDef[]; showMsg: (t: string, type?: 'success' | 'error') => void }) {
+  const { data, isLoading, mutate } = useApi<Record<string, FieldData>>(`/v1/system/config/integrations/${group}`);
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (data) {
+      const init: Record<string, string> = {};
+      for (const f of fields) {
+        const d = data[f.key];
+        init[f.key] = d?.source === 'env' ? '' : String(d?.value ?? '');
+      }
+      setValues(init);
+    }
+  }, [data]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await api.patch(`/v1/system/config/integrations/${group}`, values);
+      showMsg('บันทึกเรียบร้อย');
+      mutate();
+    } catch (e: any) { showMsg(e?.message || 'เกิดข้อผิดพลาด', 'error'); }
+    finally { setSaving(false); }
+  };
+
+  if (isLoading) return <div className="flex h-20 items-center justify-center border-t p-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
+
+  return (
+    <div className="border-t p-4 space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2">
+        {fields.map(f => {
+          const fieldData = data?.[f.key];
+          const isSensitive = f.sensitive;
+          const isVisible = showSecrets[f.key];
+          return (
+            <div key={f.key} className={f.key === 'channelAccessToken' ? 'sm:col-span-2' : ''}>
+              <label className="mb-1 flex items-center gap-2 text-sm font-medium">
+                {f.label}
+                {fieldData?.source === 'env' && <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-normal text-blue-700">ENV</span>}
+                {fieldData?.source === 'db' && <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-normal text-green-700">DB</span>}
+                {fieldData?.source === 'unset' && <span className="rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-normal text-orange-700">ยังไม่ตั้งค่า</span>}
+              </label>
+              <div className="relative">
+                <input
+                  type={isSensitive && !isVisible ? 'password' : 'text'}
+                  value={values[f.key] ?? ''}
+                  onChange={e => setValues(p => ({ ...p, [f.key]: e.target.value }))}
+                  placeholder={fieldData?.source === 'env' ? '(ใช้ค่าจาก ENV — กรอกเพื่อ override)' : f.placeholder ?? ''}
+                  className={ic}
+                />
+                {isSensitive && (
+                  <button
+                    type="button"
+                    onClick={() => setShowSecrets(p => ({ ...p, [f.key]: !p[f.key] }))}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {isVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                )}
+              </div>
+              {fieldData?.envVar && <p className="mt-0.5 text-[10px] text-muted-foreground font-mono">ENV: {fieldData.envVar}</p>}
+            </div>
+          );
+        })}
+      </div>
+      <button onClick={save} disabled={saving} className={bc}>
+        <Save className="h-4 w-4" />{saving ? 'กำลังบันทึก...' : 'บันทึก'}
+      </button>
+    </div>
   );
 }

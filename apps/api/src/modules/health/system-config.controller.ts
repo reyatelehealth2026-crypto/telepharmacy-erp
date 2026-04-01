@@ -1,9 +1,75 @@
-import { Controller, Get, Patch, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Body, Param, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { SystemConfigService } from './system-config.service';
+
+/**
+ * Defines which keys each integration group supports.
+ * Keys are stored as `{group}.{field}` in system_config table.
+ * Env fallback mapping tells us which env var to show as placeholder.
+ */
+const INTEGRATION_GROUPS: Record<string, { fields: string[]; envMap: Record<string, string> }> = {
+  line: {
+    fields: ['channelAccessToken', 'channelSecret', 'channelId', 'liffId'],
+    envMap: {
+      channelAccessToken: 'LINE_CHANNEL_ACCESS_TOKEN',
+      channelSecret: 'LINE_CHANNEL_SECRET',
+      channelId: 'LINE_CHANNEL_ID',
+      liffId: 'LINE_LIFF_ID',
+    },
+  },
+  odoo: {
+    fields: ['baseUrl', 'apiUser', 'apiToken', 'syncIntervalMs', 'stockCacheTtlSec'],
+    envMap: {
+      baseUrl: 'ODOO_BASE_URL',
+      apiUser: 'ODOO_API_USER',
+      apiToken: 'ODOO_API_TOKEN',
+      syncIntervalMs: 'ODOO_SYNC_INTERVAL_MS',
+      stockCacheTtlSec: 'ODOO_STOCK_CACHE_TTL_SEC',
+    },
+  },
+  payment: {
+    fields: ['omisePublicKey', 'omiseSecretKey'],
+    envMap: {
+      omisePublicKey: 'OMISE_PUBLIC_KEY',
+      omiseSecretKey: 'OMISE_SECRET_KEY',
+    },
+  },
+  ai: {
+    fields: ['geminiApiKey'],
+    envMap: {
+      geminiApiKey: 'GEMINI_API_KEY',
+    },
+  },
+  meilisearch: {
+    fields: ['host', 'masterKey'],
+    envMap: {
+      host: 'MEILI_HOST',
+      masterKey: 'MEILI_MASTER_KEY',
+    },
+  },
+  telemedicine: {
+    fields: [
+      'agoraAppId', 'agoraAppCertificate',
+      'awsRegion', 'awsAccessKeyId', 'awsSecretAccessKey',
+      'thaiSmsApiKey', 'thaiSmsSender',
+      'auditEncryptionKey', 'pharmacyCouncilApiKey',
+    ],
+    envMap: {
+      agoraAppId: 'AGORA_APP_ID',
+      agoraAppCertificate: 'AGORA_APP_CERTIFICATE',
+      awsRegion: 'AWS_REKOGNITION_REGION',
+      awsAccessKeyId: 'AWS_REKOGNITION_ACCESS_KEY',
+      awsSecretAccessKey: 'AWS_REKOGNITION_SECRET_KEY',
+      thaiSmsApiKey: 'THAI_SMS_API_KEY',
+      thaiSmsSender: 'THAI_SMS_SENDER',
+      auditEncryptionKey: 'AUDIT_ENCRYPTION_KEY',
+      pharmacyCouncilApiKey: 'PHARMACY_COUNCIL_API_KEY',
+    },
+  },
+};
 
 @Controller('system/config')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -54,6 +120,64 @@ export class SystemConfigController {
         .map(([k, v]) => ({ key: `notifications.${k}`, value: v })),
       user.id,
     );
+    return { success: true, message: 'บันทึกเรียบร้อย' };
+  }
+
+  // ─── Integration Config Endpoints ──────────────────────────────
+
+  /** List all available integration groups. */
+  @Get('integrations')
+  async listIntegrations() {
+    const groups = Object.keys(INTEGRATION_GROUPS);
+    return { success: true, data: groups };
+  }
+
+  /** Get config for a specific integration group (sensitive values masked). */
+  @Get('integrations/:group')
+  async getIntegration(@Param('group') group: string) {
+    const def = INTEGRATION_GROUPS[group];
+    if (!def) {
+      return { success: false, message: `Unknown integration group: ${group}` };
+    }
+
+    const dbValues = await this.configService.getByPrefix(group);
+
+    // Build response: DB value (masked if sensitive) or indicate env fallback
+    const result: Record<string, { value: unknown; source: 'db' | 'env' | 'unset'; envVar: string }> = {};
+    for (const field of def.fields) {
+      const envVar = def.envMap[field] ?? '';
+      if (dbValues[field] !== undefined) {
+        result[field] = { value: dbValues[field], source: 'db', envVar };
+      } else {
+        const envVal = process.env[envVar];
+        result[field] = {
+          value: envVal ? '(ใช้ค่าจาก ENV)' : '',
+          source: envVal ? 'env' : 'unset',
+          envVar,
+        };
+      }
+    }
+
+    return { success: true, data: result };
+  }
+
+  /** Update config for a specific integration group. */
+  @Patch('integrations/:group')
+  async updateIntegration(
+    @Param('group') group: string,
+    @Body() body: Record<string, unknown>,
+    @CurrentUser() user: any,
+  ) {
+    const def = INTEGRATION_GROUPS[group];
+    if (!def) {
+      return { success: false, message: `Unknown integration group: ${group}` };
+    }
+
+    const entries = Object.entries(body)
+      .filter(([k]) => def.fields.includes(k))
+      .map(([k, v]) => ({ key: `${group}.${k}`, value: v }));
+
+    await this.configService.setManySkipMasked(entries, user.id);
     return { success: true, message: 'บันทึกเรียบร้อย' };
   }
 }
