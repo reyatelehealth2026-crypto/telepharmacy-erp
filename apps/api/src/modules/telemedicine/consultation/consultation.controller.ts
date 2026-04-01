@@ -28,7 +28,7 @@ import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
-@Controller('v1/telemedicine/consultations')
+@Controller('telemedicine/consultations')
 @UseGuards(JwtAuthGuard)
 export class ConsultationController {
   constructor(private readonly consultationService: ConsultationService) {}

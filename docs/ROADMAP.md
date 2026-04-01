@@ -264,9 +264,18 @@ New Routes Summary
 /profile/audit-trail  → View data access logs
 /profile/delete-account → Consent withdrawal
 
-## Phase 6 — Performance & Go-Live (สัปดาห์ 18–20)
+## Phase 6 — Performance & Go-Live (สัปดาห์ 18–20) ✅ COMPLETED
 
 **เป้าหมาย:** พร้อม production
+
+### ✅ Completed
+- [✅] Admin Staff Tools ครบ (Orders, ADR, Clinical, Inventory, Loyalty, Messaging)
+- [✅] Telemedicine Frontend (Video Call, KYC, e-Consent, History)
+- [✅] Address Sync (DB table + CRUD + Zustand sync)
+- [✅] Auth guards on all telemedicine endpoints
+- [✅] Agora SDK installed
+- [✅] System Config API + Settings page wired
+- [✅] All documentation written (Deploy, Admin, Customer, CEO, Developer)
 
 ### Testing
 - [ ] Unit tests: drug safety engine (critical path)

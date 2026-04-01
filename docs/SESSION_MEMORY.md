@@ -17,7 +17,18 @@
 
 ## เอกสารสำคัญ
 
-| Doc | Path | เนื้อหา |
+| Doc | Path | กลุ่มเป้าหมาย |
+|-----|------|--------------|
+| Deployment Guide | `docs/DEPLOYMENT_GUIDE.md` | DevOps / Developer |
+| Admin User Guide | `docs/ADMIN_USER_GUIDE.md` | เภสัชกร / เจ้าหน้าที่ |
+| Customer Guide | `docs/CUSTOMER_GUIDE.md` | ลูกค้า LINE |
+| Executive Summary | `docs/EXECUTIVE_SUMMARY.md` | CEO / Board |
+| Developer Guide | `docs/DEVELOPER_GUIDE.md` | นักพัฒนา |
+| Executive Update | `docs/EXECUTIVE_UPDATE_2026-03-31.md` | ผู้บริหาร (progress) |
+| Integration Map | `docs/project-integration-map.md` | Developer (endpoints) |
+| Phase 3 Plan | `docs/plans/phase-3-complete-project-plan.md` | PM / Developer |
+| Remaining Gaps | `docs/plans/implementation-plan-remaining-gaps.md` | PM / Developer |
+| ROADMAP | `docs/ROADMAP.md` | ทุกคน |
 |-----|------|---------|
 | Integration Map | `docs/project-integration-map.md` | แมพ 98 endpoints ↔ Shop ↔ Admin ↔ DB |
 | Phase 3 Plan | `docs/plans/phase-3-complete-project-plan.md` | Sprint 1-5 status |

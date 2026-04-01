@@ -15,7 +15,7 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import { TelemedicineAuditService, AuditSearchFilters } from './audit.service';
 import { AuditReportService } from './audit-report.service';
 
-@Controller('v1/telemedicine/audit')
+@Controller('telemedicine/audit')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AuditController {
   constructor(

@@ -29,7 +29,7 @@ const ManualReviewSchema = z.object({
   approved: z.boolean(),
 });
 
-@Controller('v1/telemedicine/licenses')
+@Controller('telemedicine/licenses')
 export class LicenseController {
   constructor(private readonly licenseService: LicenseVerifierService) {}
 

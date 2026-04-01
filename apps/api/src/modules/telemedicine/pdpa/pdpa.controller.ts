@@ -17,7 +17,7 @@ import type {
 } from './pdpa.service';
 
 @ApiTags('Telemedicine - PDPA Compliance')
-@Controller('v1/telemedicine/pdpa')
+@Controller('telemedicine/pdpa')
 export class PdpaController {
   constructor(private readonly pdpaService: PdpaService) {}
 

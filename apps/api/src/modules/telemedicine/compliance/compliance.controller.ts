@@ -15,7 +15,7 @@ import { DocumentationGeneratorService } from './documentation-generator.service
 import * as fs from 'fs';
 
 @ApiTags('Telemedicine - Compliance Monitoring')
-@Controller('v1/telemedicine/compliance')
+@Controller('telemedicine/compliance')
 export class ComplianceController {
   constructor(
     private readonly complianceMonitor: ComplianceMonitorService,

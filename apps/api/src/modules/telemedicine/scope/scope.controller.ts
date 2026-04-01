@@ -28,7 +28,7 @@ import {
   type ScopeValidationHistoryDto,
 } from './dto/validate-scope.dto';
 
-@Controller('v1/telemedicine/scope')
+@Controller('telemedicine/scope')
 export class ScopeController {
   constructor(
     private readonly scopeValidatorService: ScopeValidatorService,

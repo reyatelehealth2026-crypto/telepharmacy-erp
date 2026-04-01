@@ -45,7 +45,7 @@ const ReferralStatsSchema = z.object({
   endDate: z.string(),
 });
 
-@Controller('v1/telemedicine/referrals')
+@Controller('telemedicine/referrals')
 export class ReferralController {
   constructor(private readonly referralService: ReferralService) {}
 

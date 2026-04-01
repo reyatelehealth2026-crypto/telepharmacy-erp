@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
-import { consentTemplates } from '@telepharmacy/db/schema/telemedicine';
+import { consentTemplates } from '@telepharmacy/db/schema';
 
 /**
  * Seed script to initialize the Thai consent template v1.0.0
