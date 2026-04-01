@@ -47,7 +47,7 @@ export default function VideoCallPage() {
         clientRef.current = client;
 
         // Handle remote user
-        client.on('user-published', async (user: any, mediaType: string) => {
+        client.on('user-published', async (user: any, mediaType: 'video' | 'audio') => {
           await client.subscribe(user, mediaType);
           if (mediaType === 'video' && remoteVideoRef.current) {
             user.videoTrack?.play(remoteVideoRef.current);
@@ -57,7 +57,7 @@ export default function VideoCallPage() {
           }
         });
 
-        client.on('user-unpublished', (user: any, mediaType: string) => {
+        client.on('user-unpublished', (user: any, mediaType: 'video' | 'audio') => {
           if (mediaType === 'video' && remoteVideoRef.current) {
             remoteVideoRef.current.innerHTML = '';
           }
