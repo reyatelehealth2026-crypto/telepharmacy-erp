@@ -21,7 +21,13 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (ready && isAuthenticated()) {
-      router.replace('/');
+      // Check if patient has completed registration
+      const patient = useAuthStore.getState().patient;
+      if (patient && !patient.isRegistered) {
+        router.replace('/register');
+      } else {
+        router.replace('/');
+      }
     }
   }, [ready, isAuthenticated, router]);
 

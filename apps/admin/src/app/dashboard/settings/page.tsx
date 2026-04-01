@@ -119,7 +119,17 @@ function LineSettingsTab({ showMsg }: { showMsg: (t: string, type?: 'success' | 
   const save = async () => {
     setSaving(true);
     try {
-      await api.patch('/v1/system/config/integrations/line', form);
+      // Only send fields that have actual values (skip empty strings — they mean "keep current")
+      const payload: Record<string, string> = {};
+      for (const [k, v] of Object.entries(form)) {
+        if (v.trim() !== '') payload[k] = v;
+      }
+      if (Object.keys(payload).length === 0) {
+        showMsg('ไม่มีค่าที่ต้องบันทึก — กรอกค่าใหม่เพื่อ override', 'error');
+        setSaving(false);
+        return;
+      }
+      await api.patch('/v1/system/config/integrations/line', payload);
       showMsg('บันทึกการตั้งค่า LINE สำเร็จ');
     } catch (e: unknown) {
       showMsg(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด', 'error');
@@ -150,6 +160,30 @@ function LineSettingsTab({ showMsg }: { showMsg: (t: string, type?: 'success' | 
       <p className="text-sm text-muted-foreground">
         กำหนดค่า LINE Messaging API Channel สำหรับส่งข้อความและ LIFF
       </p>
+
+      {/* LINE Configuration Guide */}
+      <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 max-w-xl space-y-3">
+        <p className="text-sm font-medium text-blue-900">คำแนะนำการตั้งค่า LINE</p>
+        <div className="text-xs text-blue-800 space-y-2">
+          <div>
+            <p className="font-medium">1. LINE Login / LIFF (สำหรับ Shop App)</p>
+            <p className="text-blue-700">ใช้สำหรับให้ลูกค้า login ผ่าน LINE — ตั้งค่าที่ LINE Developers Console → LINE Login Channel</p>
+            <p className="text-blue-700">• Callback URL: <code className="bg-blue-100 px-1 rounded">https://shop.re-ya.com</code></p>
+            <p className="text-blue-700">• LIFF Endpoint URL: <code className="bg-blue-100 px-1 rounded">https://shop.re-ya.com</code></p>
+            <p className="text-blue-700">• Scope: <code className="bg-blue-100 px-1 rounded">profile, openid</code></p>
+          </div>
+          <div>
+            <p className="font-medium">2. Messaging API (สำหรับส่งข้อความ/Webhook)</p>
+            <p className="text-blue-700">ใช้สำหรับส่ง push message, Flex Message, รับ webhook — ตั้งค่าที่ LINE Developers Console → Messaging API Channel</p>
+            <p className="text-blue-700">• Webhook URL: <code className="bg-blue-100 px-1 rounded">https://api.re-ya.com/v1/line/webhook</code></p>
+            <p className="text-blue-700">• Channel Access Token ด้านล่างนี้ใช้สำหรับ Messaging API</p>
+          </div>
+          <div>
+            <p className="font-medium text-amber-700">⚠️ LIFF ID กับ Channel ID อาจต่างกัน</p>
+            <p className="text-blue-700">LIFF ID มาจาก LINE Login Channel, Channel ID/Secret/Token มาจาก Messaging API Channel</p>
+          </div>
+        </div>
+      </div>
       <div className="grid gap-4 max-w-xl">
         {fields.map((f) => {
           const fieldData = data?.[f.key];

@@ -68,11 +68,14 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
                   refreshToken: res.refreshToken,
                   patient: res.patient,
                 });
+                // If patient hasn't completed registration, redirect to register
+                if (!res.patient.isRegistered) {
+                  window.location.href = '/register';
+                  return;
+                }
               } catch (err) {
-                console.error("LINE auto-login failed:", err);
-                // Redirect to registration page
-                window.location.href = "/register";
-                return;
+                console.error('LINE auto-login failed:', err);
+                // Don't redirect — let the page handle it
               }
             }
           }

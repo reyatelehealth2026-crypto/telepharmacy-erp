@@ -58,6 +58,9 @@ export class AuthService {
           lineLinkedAt: new Date(),
         })
         .returning();
+    } else {
+      // Check if patient has completed registration (has phone number)
+      isRegistered = !!patient.phone;
     }
 
     const tokens = await this.generatePatientTokens(patient);
