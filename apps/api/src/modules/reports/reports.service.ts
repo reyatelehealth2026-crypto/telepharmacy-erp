@@ -140,6 +140,8 @@ export class ReportsService {
   }
 
   async getTopProducts(from: Date, to: Date, limit = 10) {
+    const fromStr = from.toISOString();
+    const toStr = to.toISOString();
     const rows = await this.db.execute(sql`
       SELECT
         oi.product_id,
@@ -150,8 +152,8 @@ export class ReportsService {
         COUNT(DISTINCT o.id)::int AS order_count
       FROM order_items oi
       JOIN orders o ON o.id = oi.order_id
-      WHERE o.created_at >= ${from}
-        AND o.created_at <= ${to}
+      WHERE o.created_at >= ${fromStr}
+        AND o.created_at <= ${toStr}
         AND o.status NOT IN ('cancelled', 'draft')
       GROUP BY oi.product_id, oi.product_name, oi.sku
       ORDER BY total_revenue DESC
