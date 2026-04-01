@@ -71,6 +71,7 @@ export default function VideoCallPage() {
         });
 
         // Join channel
+        if (!agoraToken) throw new Error('Agora token not available');
         await client.join(agoraToken.appId, agoraToken.channelName, agoraToken.token, agoraToken.uid);
 
         // Create local tracks
