@@ -120,6 +120,40 @@ export class AuthService {
     };
   }
 
+  async staffRegister(dto: { email: string; password: string; firstName?: string; lastName?: string; role?: string }) {
+    // Check if email already exists
+    const [existing] = await this.db
+      .select()
+      .from(staff)
+      .where(eq(staff.email, dto.email.toLowerCase()))
+      .limit(1);
+
+    if (existing) {
+      throw new ConflictException('อีเมลนี้ถูกใช้งานแล้ว');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.password, 10);
+
+    const [newStaff] = await this.db
+      .insert(staff)
+      .values({
+        email: dto.email.toLowerCase(),
+        passwordHash,
+        firstName: dto.firstName || dto.email.split('@')[0] || 'Staff',
+        lastName: dto.lastName || '',
+        role: dto.role || 'pharmacist_tech',
+        isActive: true,
+      })
+      .returning();
+
+    return {
+      id: newStaff.id,
+      email: newStaff.email,
+      role: newStaff.role,
+      message: 'เพิ่ม Staff สำเร็จ',
+    };
+  }
+
   async refreshToken(refreshToken: string) {
     try {
       const payload = this.jwtService.verify<JwtPayload>(refreshToken, {

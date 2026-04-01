@@ -18,6 +18,8 @@ import { PatientOnly } from './decorators/patient-only.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PatientOnlyGuard } from './guards/patient-only.guard';
+import { RolesGuard } from './guards/roles.guard';
+import { Roles } from './decorators/roles.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import type { RequestUser } from './interfaces';
 
@@ -44,6 +46,14 @@ export class AuthController {
   @HttpCode(HttpStatus.CREATED)
   staffLogin(@Body() dto: StaffLoginDto) {
     return this.authService.staffLogin(dto);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin')
+  @Post('staff-register')
+  @HttpCode(HttpStatus.CREATED)
+  staffRegister(@Body() dto: { email: string; password: string; firstName?: string; lastName?: string; role?: string }) {
+    return this.authService.staffRegister(dto);
   }
 
   @Public()

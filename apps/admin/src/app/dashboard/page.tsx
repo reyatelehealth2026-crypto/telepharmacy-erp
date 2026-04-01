@@ -218,7 +218,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-semibold">
-                      ฿{parseFloat(order.totalAmount).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                      ฿{(parseFloat(order.totalAmount) || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
                     </p>
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Clock className="h-3 w-3" />
