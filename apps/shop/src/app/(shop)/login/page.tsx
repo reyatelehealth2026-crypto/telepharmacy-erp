@@ -1,4 +1,4 @@
-'use client';
+'use client';fix
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';

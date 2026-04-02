@@ -81,7 +81,7 @@ const PIE_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316', '#eab
 
 const INTERVENTION_LABELS: Record<string, string> = {
   drug_interaction: 'Drug Interaction',
-  allergy_alert: 'แพ้ยา',
+  allergy_prevented: 'แพ้ยา',
   dose_adjustment: 'ปรับขนาดยา',
   therapeutic_duplication: 'ยาซ้ำซ้อน',
   formulary_substitution: 'เปลี่ยนยา',

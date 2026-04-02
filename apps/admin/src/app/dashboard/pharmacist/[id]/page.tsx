@@ -95,7 +95,7 @@ const SEVERITY_COLORS: Record<string, string> = {
 
 const INTERVENTION_TYPES = [
   { value: 'drug_interaction', label: 'Drug Interaction' },
-  { value: 'allergy_alert', label: 'แพ้ยา' },
+  { value: 'allergy_prevented', label: 'แพ้ยา' },
   { value: 'dose_adjustment', label: 'ปรับขนาดยา' },
   { value: 'therapeutic_duplication', label: 'ยาซ้ำซ้อน' },
   { value: 'formulary_substitution', label: 'เปลี่ยนยาตามบัญชี' },

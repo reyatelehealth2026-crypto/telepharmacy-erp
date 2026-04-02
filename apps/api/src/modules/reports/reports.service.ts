@@ -217,9 +217,9 @@ export class ReportsService {
         p.stock_qty,
         p.reorder_point,
         COALESCE(
-          (SELECT SUM(il.quantity_remaining::numeric)
+          (SELECT SUM(il.quantity_available::numeric)
            FROM inventory_lots il
-           WHERE il.product_id = p.id AND il.quantity_remaining > 0),
+           WHERE il.product_id = p.id AND il.quantity_available > 0),
           0
         ) AS lot_qty_remaining
       FROM products p
@@ -242,12 +242,12 @@ export class ReportsService {
         il.lot_no,
         COALESCE(p.name_th, p.name_en) AS product_name,
         p.sku,
-        il.quantity_remaining,
+        il.quantity_available AS quantity_remaining,
         il.expiry_date,
         EXTRACT(day FROM il.expiry_date::timestamp - now()) AS days_until_expiry
       FROM inventory_lots il
       JOIN products p ON p.id = il.product_id
-      WHERE il.quantity_remaining > 0
+      WHERE il.quantity_available > 0
         AND il.expiry_date IS NOT NULL
         AND il.expiry_date <= ${cutoff.toISOString().split('T')[0]}
       ORDER BY il.expiry_date ASC

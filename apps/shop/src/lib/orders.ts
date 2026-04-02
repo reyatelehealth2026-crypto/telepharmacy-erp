@@ -54,21 +54,19 @@ export interface Order {
 
 export interface CreateOrderData {
   items: Array<{ productId: string; quantity: number }>;
-  shippingMethod: ShippingMethod;
-  paymentMethod: PaymentMethod;
-  addressId: string;
-  address: {
-    recipientName: string;
-    phone: string;
+  deliveryAddress: {
     address: string;
-    subDistrict: string;
-    district: string;
+    subDistrict?: string;
+    district?: string;
     province: string;
-    postalCode: string;
-    notes?: string;
+    postalCode?: string;
+    phone?: string;
+    recipient?: string;
   };
-  couponCode?: string;
-  redeemPoints?: number;
+  paymentMethod?: string;
+  discountCode?: string;
+  usePoints?: number;
+  deliveryNotes?: string;
   notes?: string;
 }
 
@@ -88,7 +86,9 @@ export async function createOrder(token: string, data: CreateOrderData): Promise
 }
 
 export async function getMyOrders(token: string, page = 1, limit = 20): Promise<OrderListResponse> {
-  return api.get<OrderListResponse>(`/v1/patients/me/orders?page=${page}&limit=${limit}`, token);
+  const res = await api.get<any>(`/v1/orders?page=${page}&limit=${limit}`, token);
+  // Unwrap API envelope { success, data: { data, meta } }
+  return (res?.data ?? res) as OrderListResponse;
 }
 
 export async function getOrder(token: string, orderId: string): Promise<Order> {
@@ -128,7 +128,8 @@ export async function validateCoupon(
   code: string,
   subtotal: number,
 ): Promise<CouponValidation> {
-  return api.post<CouponValidation>('/v1/orders/validate-coupon', { code, subtotal }, token);
+  const res = await api.post<any>('/v1/orders/validate-coupon', { code, subtotal }, token);
+  return (res?.data ?? res) as CouponValidation;
 }
 
 export const SHIPPING_OPTIONS: Array<{
