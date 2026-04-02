@@ -29,10 +29,14 @@ async function doRefresh(): Promise<void> {
 
     if (!res.ok) throw new Error('Refresh failed');
 
-    const data = await res.json();
+    const json = await res.json();
+    const payload = json?.data ?? json;
+    const newAccessToken: string = payload?.accessToken ?? '';
+    const newRefreshToken: string = payload?.refreshToken ?? useAuthStore.getState().refreshToken ?? '';
+    if (!newAccessToken) throw new Error('Refresh failed: no token in response');
     setAuth({
-      accessToken: data.accessToken,
-      refreshToken: data.refreshToken,
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
       patient: useAuthStore.getState().patient,
     });
   } catch {
