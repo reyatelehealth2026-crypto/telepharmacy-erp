@@ -488,12 +488,12 @@ export class AuthService {
       }
       const verifyData = (await verifyRes.json()) as { client_id: string; expires_in: number };
 
-      // Resolve channelId: DB → env → derive from LIFF ID
-      let channelId = await this.dynamicConfig.resolve('line.channelId', 'LINE_CHANNEL_ID');
-      if (!channelId) {
-        const liffId = await this.dynamicConfig.resolve('line.liffId', 'LINE_LIFF_ID');
-        channelId = liffId.split('-')[0] || '';
-      }
+      // Resolve channelId: prefer LIFF-derived (Login channel) → env LINE_CHANNEL_ID
+      // LIFF tokens are always issued by the Login channel (prefix of LIFF ID)
+      const liffId = await this.dynamicConfig.resolve('line.liffId', 'LINE_LIFF_ID');
+      const liffChannelId = liffId?.split('-')[0] || '';
+      const envChannelId = await this.dynamicConfig.resolve('line.channelId', 'LINE_CHANNEL_ID');
+      const channelId = liffChannelId || envChannelId || '';
       if (verifyData.client_id !== channelId) {
         throw new UnauthorizedException('LINE channel ไม่ตรงกัน');
       }
