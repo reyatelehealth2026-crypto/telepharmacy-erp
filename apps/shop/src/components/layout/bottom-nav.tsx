@@ -19,34 +19,52 @@ export function BottomNav() {
   const itemCount = useCartStore((s) => s.itemCount());
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-white/95 backdrop-blur-sm safe-area-bottom">
-      <div className="mx-auto flex max-w-lg items-center justify-around">
-        {navItems.map((item) => {
-          const isActive =
-            item.href === '/'
-              ? pathname === '/'
-              : pathname.startsWith(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'relative flex flex-col items-center gap-0.5 px-3 py-2 text-xs transition-colors',
-                isActive
-                  ? 'text-primary font-medium'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <item.icon className="h-5 w-5" />
-              {item.showBadge && itemCount > 0 && (
-                <span className="absolute -top-0.5 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-white">
-                  {itemCount > 99 ? '99+' : itemCount}
+    <nav className="fixed bottom-0 left-0 right-0 z-50 shadow-nav safe-area-bottom">
+      <div className="glass border-t mx-auto max-w-lg">
+        <div className="flex items-center justify-around">
+          {navItems.map((item) => {
+            const isActive =
+              item.href === '/'
+                ? pathname === '/'
+                : pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  'relative flex flex-col items-center gap-0.5 px-3 py-2.5 text-xs transition-all duration-200',
+                  isActive
+                    ? 'text-primary'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {/* Active indicator dot */}
+                <span
+                  className={cn(
+                    'absolute top-0 left-1/2 -translate-x-1/2 h-0.5 rounded-full bg-primary transition-all duration-300',
+                    isActive ? 'w-5' : 'w-0'
+                  )}
+                />
+
+                <div className={cn(
+                  'flex h-7 w-7 items-center justify-center rounded-xl transition-all duration-200',
+                  isActive && 'bg-primary/10 scale-105'
+                )}>
+                  <item.icon className="h-[18px] w-[18px]" />
+                </div>
+
+                {item.showBadge && itemCount > 0 && (
+                  <span className="absolute right-3 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-white shadow-sm animate-scale-in">
+                    {itemCount > 99 ? '99+' : itemCount}
+                  </span>
+                )}
+                <span className={cn('font-medium', isActive && 'font-semibold')}>
+                  {item.label}
                 </span>
-              )}
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
+              </Link>
+            );
+          })}
+        </div>
       </div>
     </nav>
   );
