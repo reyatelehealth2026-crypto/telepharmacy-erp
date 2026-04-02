@@ -32,10 +32,13 @@ const INTEGRATION_GROUPS: Record<string, { fields: string[]; envMap: Record<stri
     },
   },
   payment: {
-    fields: ['omisePublicKey', 'omiseSecretKey'],
+    fields: ['omisePublicKey', 'omiseSecretKey', 'promptpayEnabled', 'creditCardEnabled', 'transferEnabled'],
     envMap: {
       omisePublicKey: 'OMISE_PUBLIC_KEY',
       omiseSecretKey: 'OMISE_SECRET_KEY',
+      promptpayEnabled: '',
+      creditCardEnabled: '',
+      transferEnabled: '',
     },
   },
   ai: {
@@ -115,13 +118,54 @@ export class SystemConfigController {
 
   @Patch('notifications')
   async updateNotificationSettings(
-    @Body() body: { newOrder?: boolean; lowStock?: boolean; rxPending?: boolean },
+    @Body() body: Record<string, boolean>,
     @CurrentUser() user: any,
   ) {
+    const allowedKeys = [
+      'newOrder', 'lowStock', 'rxPending', 'newComplaint', 'newConsultation',
+      'orderConfirmation', 'orderShipped', 'orderDelivered',
+      'prescriptionStatus', 'medicationReminder', 'promotionalMessages',
+    ];
     await this.configService.setMany(
       Object.entries(body)
-        .filter(([, v]) => v !== undefined)
+        .filter(([k, v]) => allowedKeys.includes(k) && v !== undefined)
         .map(([k, v]) => ({ key: `notifications.${k}`, value: v })),
+      user.id,
+    );
+    return { success: true, message: 'บันทึกเรียบร้อย' };
+  }
+
+  @Get('delivery')
+  async getDeliverySettings() {
+    const all = await this.configService.getAll();
+    return {
+      success: true,
+      data: {
+        freeDeliveryThreshold: all['delivery.freeDeliveryThreshold'] ?? '500',
+        standardDeliveryFee: all['delivery.standardDeliveryFee'] ?? '50',
+        expressDeliveryFee: all['delivery.expressDeliveryFee'] ?? '100',
+        standardDeliveryDays: all['delivery.standardDeliveryDays'] ?? '3-5',
+        expressDeliveryDays: all['delivery.expressDeliveryDays'] ?? '1-2',
+        enableExpress: all['delivery.enableExpress'] ?? true,
+        enableCOD: all['delivery.enableCOD'] ?? false,
+        maxWeight: all['delivery.maxWeight'] ?? '20',
+      },
+    };
+  }
+
+  @Patch('delivery')
+  async updateDeliverySettings(
+    @Body() body: Record<string, unknown>,
+    @CurrentUser() user: any,
+  ) {
+    const allowedKeys = [
+      'freeDeliveryThreshold', 'standardDeliveryFee', 'expressDeliveryFee',
+      'standardDeliveryDays', 'expressDeliveryDays', 'enableExpress', 'enableCOD', 'maxWeight',
+    ];
+    await this.configService.setMany(
+      Object.entries(body)
+        .filter(([k, v]) => allowedKeys.includes(k) && v !== undefined)
+        .map(([k, v]) => ({ key: `delivery.${k}`, value: v })),
       user.id,
     );
     return { success: true, message: 'บันทึกเรียบร้อย' };

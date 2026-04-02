@@ -14,14 +14,12 @@ export interface LoginResponse {
 }
 
 export interface RegisterData {
-  lineUserId: string;
-  lineDisplayName: string;
-  linePictureUrl?: string;
+  lineAccessToken: string;
   firstName: string;
   lastName: string;
-  phone: string;
-  dateOfBirth: string;
-  gender: 'male' | 'female' | 'other';
+  phone?: string;
+  dateOfBirth?: string;
+  gender?: 'male' | 'female' | 'other';
   weight?: number;
   height?: number;
   pdpaConsent: boolean;
@@ -40,11 +38,14 @@ export interface ProfileUpdateData {
 }
 
 export async function loginWithLine(lineAccessToken: string): Promise<LoginResponse> {
-  return api.post<LoginResponse>('/v1/auth/line', { lineAccessToken });
+  const res = await api.post<any>('/v1/auth/line', { lineAccessToken });
+  // Unwrap API envelope { success, data } if present
+  return (res?.data ?? res) as LoginResponse;
 }
 
 export async function registerPatient(data: RegisterData): Promise<LoginResponse> {
-  return api.post<LoginResponse>('/v1/auth/register', data);
+  const res = await api.post<any>('/v1/auth/register', data);
+  return (res?.data ?? res) as LoginResponse;
 }
 
 export async function refreshAccessToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {

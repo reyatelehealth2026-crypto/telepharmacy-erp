@@ -259,10 +259,14 @@ function PaymentSettingsTab({ showMsg }: { showMsg: (t: string, type?: 'success'
   const save = async () => {
     setSaving(true);
     try {
-      await api.patch('/v1/system/config/integrations/payment', {
-        omisePublicKey: form.omisePublicKey,
-        omiseSecretKey: form.omiseSecretKey,
-      });
+      const payload: Record<string, unknown> = {
+        promptpayEnabled: form.promptpayEnabled,
+        creditCardEnabled: form.creditCardEnabled,
+        transferEnabled: form.transferEnabled,
+      };
+      if (form.omisePublicKey.trim()) payload.omisePublicKey = form.omisePublicKey;
+      if (form.omiseSecretKey.trim()) payload.omiseSecretKey = form.omiseSecretKey;
+      await api.patch('/v1/system/config/integrations/payment', payload);
       showMsg('บันทึกการตั้งค่าชำระเงินสำเร็จ');
     } catch (e: unknown) {
       showMsg(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด', 'error');
@@ -368,6 +372,16 @@ function PaymentSettingsTab({ showMsg }: { showMsg: (t: string, type?: 'success'
 // ─── Delivery Settings ──────────────────────────────────────
 
 function DeliverySettingsTab({ showMsg }: { showMsg: (t: string, type?: 'success' | 'error') => void }) {
+  const { data, isLoading } = useApi<{
+    freeDeliveryThreshold: string;
+    standardDeliveryFee: string;
+    expressDeliveryFee: string;
+    standardDeliveryDays: string;
+    expressDeliveryDays: string;
+    enableExpress: boolean;
+    enableCOD: boolean;
+    maxWeight: string;
+  }>('/v1/system/config/delivery');
   const [form, setForm] = useState({
     freeDeliveryThreshold: '500',
     standardDeliveryFee: '50',
@@ -380,6 +394,21 @@ function DeliverySettingsTab({ showMsg }: { showMsg: (t: string, type?: 'success
   });
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    if (data) {
+      setForm({
+        freeDeliveryThreshold: String(data.freeDeliveryThreshold ?? '500'),
+        standardDeliveryFee: String(data.standardDeliveryFee ?? '50'),
+        expressDeliveryFee: String(data.expressDeliveryFee ?? '100'),
+        standardDeliveryDays: String(data.standardDeliveryDays ?? '3-5'),
+        expressDeliveryDays: String(data.expressDeliveryDays ?? '1-2'),
+        enableExpress: data.enableExpress !== false,
+        enableCOD: !!data.enableCOD,
+        maxWeight: String(data.maxWeight ?? '20'),
+      });
+    }
+  }, [data]);
+
   const save = async () => {
     setSaving(true);
     try {
@@ -391,6 +420,13 @@ function DeliverySettingsTab({ showMsg }: { showMsg: (t: string, type?: 'success
       setSaving(false);
     }
   };
+
+  if (isLoading)
+    return (
+      <div className="flex h-32 items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
 
   return (
     <>

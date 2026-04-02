@@ -20,8 +20,8 @@ export default function LoginPage() {
   const { isAuthenticated } = useAuthStore();
 
   useEffect(() => {
-    if (ready && isAuthenticated()) {
-      // Check if patient has completed registration
+    if (!ready) return;
+    if (isAuthenticated()) {
       const patient = useAuthStore.getState().patient;
       if (patient && !patient.isRegistered) {
         router.replace('/register');
