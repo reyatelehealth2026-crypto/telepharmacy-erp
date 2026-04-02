@@ -74,7 +74,7 @@ export default function ProductsPage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="sticky top-14 z-30 bg-background px-4 pb-3 pt-3">
+      <div className="sticky top-[104px] z-30 bg-background px-4 pb-3 pt-3">
         <div className="flex items-center gap-2">
           <LayoutGrid className="h-5 w-5 text-primary" />
           <h1 className="text-lg font-bold">สินค้าทั้งหมด</h1>
