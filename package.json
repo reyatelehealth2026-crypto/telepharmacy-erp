@@ -6,7 +6,10 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "turbo run build",
+    "build": "turbo run build && pnpm postbuild",
+    "postbuild": "pnpm postbuild:admin && pnpm postbuild:shop",
+    "postbuild:admin": "cp -r apps/admin/.next/static apps/admin/.next/standalone/apps/admin/.next/ && cp -r apps/admin/public apps/admin/.next/standalone/apps/admin/ || true",
+    "postbuild:shop": "cp -r apps/shop/.next/static apps/shop/.next/standalone/apps/shop/.next/ && cp -r apps/shop/public apps/shop/.next/standalone/apps/shop/ || true",
     "dev": "turbo run dev",
     "dev:api": "turbo run dev --filter=@telepharmacy/api",
     "dev:admin": "turbo run dev --filter=@telepharmacy/admin",

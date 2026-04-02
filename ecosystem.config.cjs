@@ -21,8 +21,7 @@ module.exports = {
     {
       name: 'telepharmacy-admin',
       cwd: './apps/admin',
-      script: 'node_modules/.bin/next',
-      args: 'start --port 3001',
+      script: '.next/standalone/apps/admin/server.js',
       instances: 1,
       env_production: {
         NODE_ENV: 'production',
@@ -37,8 +36,7 @@ module.exports = {
     {
       name: 'telepharmacy-shop',
       cwd: './apps/shop',
-      script: 'node_modules/.bin/next',
-      args: 'start --port 3002',
+      script: '.next/standalone/apps/shop/server.js',
       instances: 1,
       env_production: {
         NODE_ENV: 'production',

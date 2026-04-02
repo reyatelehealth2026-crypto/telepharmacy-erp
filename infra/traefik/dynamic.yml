@@ -1,0 +1,72 @@
+http:
+  routers:
+    api-router:
+      rule: "Host(`api.re-ya.com`)"
+      service: api-service
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    admin-router:
+      rule: "Host(`admin.re-ya.com`)"
+      service: admin-service
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    shop-router:
+      rule: "Host(`shop.re-ya.com`)"
+      service: shop-service
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # HTTP to HTTPS redirect
+    api-redirect:
+      rule: "Host(`api.re-ya.com`)"
+      entryPoints:
+        - web
+      middlewares:
+        - redirect-to-https
+      service: api-service
+
+    admin-redirect:
+      rule: "Host(`admin.re-ya.com`)"
+      entryPoints:
+        - web
+      middlewares:
+        - redirect-to-https
+      service: admin-service
+
+    shop-redirect:
+      rule: "Host(`shop.re-ya.com`)"
+      entryPoints:
+        - web
+      middlewares:
+        - redirect-to-https
+      service: shop-service
+
+  services:
+    api-service:
+      loadBalancer:
+        servers:
+          - url: "http://host.docker.internal:3000"
+
+    admin-service:
+      loadBalancer:
+        servers:
+          - url: "http://host.docker.internal:3001"
+
+    shop-service:
+      loadBalancer:
+        servers:
+          - url: "http://host.docker.internal:3002"
+
+  middlewares:
+    redirect-to-https:
+      redirectScheme:
+        scheme: https
+        permanent: true
