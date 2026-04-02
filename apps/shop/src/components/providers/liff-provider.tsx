@@ -57,8 +57,9 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
           const profile = await getLiffProfile();
           setLiffProfile(profile);
 
-          // Auto-login to backend if no existing token
-          if (!useAuthStore.getState().accessToken && profile) {
+          // Auto-login to backend only if no existing valid token
+          const currentToken = useAuthStore.getState().accessToken;
+          if (!currentToken && profile) {
             const lineToken = getLiffAccessToken();
             if (lineToken) {
               try {
@@ -68,15 +69,25 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
                   refreshToken: res.refreshToken,
                   patient: res.patient,
                 });
-                // If patient hasn't completed registration, redirect to register
-                if (!res.patient.isRegistered) {
+                // Only redirect to register if on the login page or root
+                const currentPath = window.location.pathname;
+                const isOnLoginPage = currentPath === '/login' || currentPath === '/';
+                if (!res.patient.isRegistered && isOnLoginPage) {
                   window.location.href = '/register';
                   return;
                 }
               } catch (err) {
                 console.error('LINE auto-login failed:', err);
-                // Don't redirect — let the page handle it
               }
+            }
+          } else if (currentToken) {
+            // Already have a token — check if we need to complete registration
+            const currentPatient = useAuthStore.getState().patient;
+            const currentPath = window.location.pathname;
+            const isOnLoginPage = currentPath === '/login' || currentPath === '/';
+            if (currentPatient && !currentPatient.isRegistered && isOnLoginPage) {
+              window.location.href = '/register';
+              return;
             }
           }
         }
