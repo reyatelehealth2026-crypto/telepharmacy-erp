@@ -98,7 +98,7 @@ export function ProductCard({
         {/* Badges row */}
         <div className="absolute left-2 top-2 flex flex-col gap-1">
           {needsRx && (
-            <Badge variant="warning" className="shadow-sm text-[10px] px-1.5 py-0.5">
+            <Badge variant="warning" className="text-[10px] px-1.5 py-0.5 shadow-sm">
               ใบสั่งยา
             </Badge>
           )}
@@ -106,7 +106,7 @@ export function ProductCard({
         {discountPct !== null && (
           <Badge
             variant="destructive"
-            className="absolute right-2 top-2 shadow-sm text-[10px] px-1.5 py-0.5"
+            className="absolute right-2 top-2 text-[10px] px-1.5 py-0.5 shadow-sm"
           >
             -{discountPct}%
           </Badge>

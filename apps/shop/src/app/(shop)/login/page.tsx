@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Pill, MessageCircle, Shield, Truck, Sparkles } from 'lucide-react';
+import { Pill, MessageCircle, Shield, Truck, Sparkles, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLiff } from '@/components/providers/liff-provider';
 import { useAuthStore } from '@/store/auth';
@@ -80,7 +80,7 @@ export default function LoginPage() {
         <div className="mt-8 w-full max-w-sm space-y-3 animate-slide-up">
           {!ready ? (
             <Button className="w-full rounded-2xl" size="lg" disabled>
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+              <Loader2 className="h-4 w-4 animate-spin" />
               กำลังโหลด...
             </Button>
           ) : (
