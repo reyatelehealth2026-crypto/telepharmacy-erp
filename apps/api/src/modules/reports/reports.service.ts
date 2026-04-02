@@ -215,7 +215,7 @@ export class ReportsService {
         COALESCE(p.name_th, p.name_en) AS product_name,
         p.sku,
         p.stock_qty,
-        p.reorder_level,
+        p.reorder_point,
         COALESCE(
           (SELECT SUM(il.quantity_remaining::numeric)
            FROM inventory_lots il
@@ -223,9 +223,9 @@ export class ReportsService {
           0
         ) AS lot_qty_remaining
       FROM products p
-      WHERE p.stock_qty <= p.reorder_level
+      WHERE p.stock_qty::numeric <= p.reorder_point::numeric
         AND p.status = 'active'
-      ORDER BY (p.stock_qty::numeric / NULLIF(p.reorder_level, 0)) ASC
+      ORDER BY (p.stock_qty::numeric / NULLIF(p.reorder_point::numeric, 0)) ASC
       LIMIT 50
     `);
 

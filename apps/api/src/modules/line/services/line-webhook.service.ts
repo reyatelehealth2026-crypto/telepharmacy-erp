@@ -1,6 +1,6 @@
 import { Injectable, Inject, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { eq } from 'drizzle-orm';
+import { eq, desc, sql } from 'drizzle-orm';
 import { patients, chatSessions, chatMessages } from '@telepharmacy/db';
 import { chatWithPatientSync } from '@telepharmacy/ai';
 import { DRIZZLE } from '../../../database/database.constants';
@@ -537,6 +537,7 @@ export class LineWebhookService {
     lineUserId: string,
     displayName?: string,
   ): Promise<any> {
+    // First check if patient already exists
     const [existing] = await this.db
       .select()
       .from(patients)
@@ -545,20 +546,45 @@ export class LineWebhookService {
 
     if (existing) return existing;
 
+    // Generate patient number and attempt insert with conflict handling
     const patientNo = await this.generatePatientNo();
-    const [created] = await this.db
-      .insert(patients)
-      .values({
-        lineUserId,
-        patientNo,
-        firstName: displayName ?? 'ผู้ใช้',
-        lastName: '',
-        lineLinkedAt: new Date(),
-      })
-      .returning();
+    try {
+      const [created] = await this.db
+        .insert(patients)
+        .values({
+          lineUserId,
+          patientNo,
+          firstName: displayName ?? 'ผู้ใช้',
+          lastName: '',
+          lineLinkedAt: new Date(),
+        })
+        .onConflictDoNothing({ target: patients.lineUserId })
+        .returning();
 
-    this.logger.log(`New patient created via LINE: ${patientNo}`);
-    return created;
+      // If conflict occurred, returning() gives empty — re-fetch
+      if (!created) {
+        const [refetched] = await this.db
+          .select()
+          .from(patients)
+          .where(eq(patients.lineUserId, lineUserId))
+          .limit(1);
+        return refetched;
+      }
+
+      this.logger.log(`New patient created via LINE: ${patientNo}`);
+      return created;
+    } catch (error: any) {
+      // Handle race condition: if duplicate key on patientNo, re-fetch
+      if (error?.code === '23505') {
+        const [refetched] = await this.db
+          .select()
+          .from(patients)
+          .where(eq(patients.lineUserId, lineUserId))
+          .limit(1);
+        if (refetched) return refetched;
+      }
+      throw error;
+    }
   }
 
   private async getOrCreateChatSession(
@@ -693,15 +719,12 @@ export class LineWebhookService {
   }
 
   private async generatePatientNo(): Promise<string> {
+    // Use MAX to get the highest patient number directly (avoids sorting issues)
     const result = await this.db
-      .select({ patientNo: patients.patientNo })
-      .from(patients)
-      .orderBy(patients.createdAt)
-      .limit(1);
+      .select({ maxNo: sql<string>`MAX(${patients.patientNo})` })
+      .from(patients);
 
-    if (result.length === 0) return 'PT-00001';
-
-    const lastNo = result[0].patientNo ?? 'PT-00000';
+    const lastNo = result[0]?.maxNo ?? 'PT-00000';
     const num = parseInt(lastNo.replace('PT-', ''), 10) + 1;
     return `PT-${num.toString().padStart(5, '0')}`;
   }
