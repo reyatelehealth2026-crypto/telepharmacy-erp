@@ -22,6 +22,13 @@
       "when": 1774937052651,
       "tag": "0002_steep_purple_man",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1774950000000,
+      "tag": "0003_friendly_hyena_lagoon",
+      "breakpoints": true
     }
   ]
 }

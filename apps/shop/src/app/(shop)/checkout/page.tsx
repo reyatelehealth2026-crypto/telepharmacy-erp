@@ -29,6 +29,7 @@ import { useAuthGuard } from '@/lib/use-auth-guard';
 import { formatPrice } from '@/lib/utils';
 import { createOrder, validateCoupon, SHIPPING_OPTIONS, type ShippingMethod, type PaymentMethod } from '@/lib/orders';
 import { toast } from 'sonner';
+import { THAI_PROVINCES, isThaiProvince, normalizeThaiProvince } from '@/lib/thai-provinces';
 
 type CheckoutStep = 'address' | 'review';
 
@@ -53,6 +54,7 @@ export default function CheckoutPage() {
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [slipFile, setSlipFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
 
   // Address form
   const [addressForm, setAddressForm] = useState({
@@ -64,6 +66,8 @@ export default function CheckoutPage() {
     district: '',
     province: '',
     postalCode: '',
+    latitude: '',
+    longitude: '',
     notes: '',
   });
 
@@ -78,12 +82,111 @@ export default function CheckoutPage() {
     setAddressForm((f) => ({ ...f, [field]: value }));
   };
 
-  const handleSaveAddress = () => {
-    if (!addressForm.recipientName || !addressForm.phone || !addressForm.address || !addressForm.province || !addressForm.postalCode) {
-      toast.error('กรุณากรอกข้อมูลที่อยู่ให้ครบ');
+  const sanitizeDigits = (value: string) => value.replace(/\D/g, '');
+
+  const validateAddressPayload = (payload: {
+    recipientName?: string;
+    phone: string;
+    address: string;
+    province: string;
+    postalCode: string;
+  }) => {
+    if (!payload.recipientName?.trim()) return 'กรุณากรอกชื่อผู้รับ';
+    if (!payload.address?.trim()) return 'กรุณากรอกที่อยู่';
+
+    const phone = sanitizeDigits(payload.phone || '');
+    if (!/^0\d{9}$/.test(phone)) return 'เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลัก และขึ้นต้นด้วย 0';
+
+    const province = normalizeThaiProvince(payload.province || '');
+    if (!isThaiProvince(province)) return 'กรุณาเลือกจังหวัดในประเทศไทย';
+
+    const postalCode = sanitizeDigits(payload.postalCode || '');
+    if (!/^\d{5}$/.test(postalCode)) return 'รหัสไปรษณีย์ต้องเป็นตัวเลข 5 หลัก';
+
+    return null;
+  };
+
+  const handleUseCurrentLocation = async () => {
+    if (!navigator.geolocation) {
+      toast.error('เบราว์เซอร์นี้ไม่รองรับการระบุตำแหน่ง');
       return;
     }
-    addAddress({ ...addressForm, isDefault: addresses.length === 0 });
+
+    setLocationLoading(true);
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0,
+        });
+      });
+
+      const latitude = position.coords.latitude;
+      const longitude = position.coords.longitude;
+
+      setAddressForm((f) => ({
+        ...f,
+        latitude: latitude.toFixed(6),
+        longitude: longitude.toFixed(6),
+      }));
+
+      try {
+        const url = new URL('https://nominatim.openstreetmap.org/reverse');
+        url.searchParams.set('format', 'jsonv2');
+        url.searchParams.set('lat', String(latitude));
+        url.searchParams.set('lon', String(longitude));
+        url.searchParams.set('accept-language', 'th');
+
+        const res = await fetch(url.toString(), {
+          headers: { Accept: 'application/json' },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const addr = data?.address ?? {};
+          const rawProvince = normalizeThaiProvince(addr.state || addr.province || '');
+          const province = isThaiProvince(rawProvince) ? rawProvince : '';
+
+          setAddressForm((f) => ({
+            ...f,
+            address: data?.display_name || f.address,
+            subDistrict: addr.suburb || addr.neighbourhood || addr.village || addr.hamlet || addr.city_district || f.subDistrict,
+            district: addr.city || addr.county || addr.municipality || addr.district || f.district,
+            province: province || f.province,
+            postalCode: addr.postcode || f.postalCode,
+          }));
+        }
+      } catch {
+        // ignore reverse-geocode failure; coords already set
+      }
+
+      toast.success('ดึงตำแหน่งปัจจุบันแล้ว');
+    } catch (err: any) {
+      toast.error(err?.message || 'ไม่สามารถดึงตำแหน่งปัจจุบันได้');
+    } finally {
+      setLocationLoading(false);
+    }
+  };
+
+  const handleSaveAddress = () => {
+    const validationError = validateAddressPayload(addressForm);
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+
+    const payload = {
+      ...addressForm,
+      phone: sanitizeDigits(addressForm.phone),
+      postalCode: sanitizeDigits(addressForm.postalCode),
+      province: normalizeThaiProvince(addressForm.province),
+      latitude: addressForm.latitude.trim() ? Number(addressForm.latitude) : null,
+      longitude: addressForm.longitude.trim() ? Number(addressForm.longitude) : null,
+      isDefault: addresses.length === 0,
+    };
+
+    addAddress(payload as any);
     setStep('review');
   };
 
@@ -114,6 +217,18 @@ export default function CheckoutPage() {
       return;
     }
 
+    const selectedValidationError = validateAddressPayload({
+      recipientName: selectedAddress.recipientName,
+      phone: selectedAddress.phone,
+      address: selectedAddress.address,
+      province: selectedAddress.province,
+      postalCode: selectedAddress.postalCode,
+    });
+    if (selectedValidationError) {
+      toast.error(`ที่อยู่จัดส่งไม่ครบหรือไม่ถูกต้อง: ${selectedValidationError}`);
+      return;
+    }
+
     setSubmitting(true);
     try {
       const token = accessToken ?? '';
@@ -123,9 +238,9 @@ export default function CheckoutPage() {
           address: selectedAddress.address,
           subDistrict: selectedAddress.subDistrict,
           district: selectedAddress.district,
-          province: selectedAddress.province,
-          postalCode: selectedAddress.postalCode,
-          phone: selectedAddress.phone,
+          province: normalizeThaiProvince(selectedAddress.province),
+          postalCode: sanitizeDigits(selectedAddress.postalCode),
+          phone: sanitizeDigits(selectedAddress.phone),
           recipient: selectedAddress.recipientName,
         },
         paymentMethod,
@@ -209,15 +324,37 @@ export default function CheckoutPage() {
               ))}
             </div>
             <Input placeholder="ชื่อผู้รับ *" value={addressForm.recipientName} onChange={(e) => updateAddr('recipientName', e.target.value)} />
-            <Input placeholder="เบอร์โทรศัพท์ *" type="tel" value={addressForm.phone} onChange={(e) => updateAddr('phone', e.target.value)} />
+            <Input placeholder="เบอร์โทรศัพท์ *" type="tel" inputMode="numeric" maxLength={10} value={addressForm.phone} onChange={(e) => updateAddr('phone', e.target.value)} />
             <Input placeholder="ที่อยู่ (บ้านเลขที่ / ซอย / ถนน) *" value={addressForm.address} onChange={(e) => updateAddr('address', e.target.value)} />
             <div className="grid grid-cols-2 gap-3">
               <Input placeholder="แขวง/ตำบล" value={addressForm.subDistrict} onChange={(e) => updateAddr('subDistrict', e.target.value)} />
               <Input placeholder="เขต/อำเภอ" value={addressForm.district} onChange={(e) => updateAddr('district', e.target.value)} />
             </div>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">เลือกตำแหน่งจากพิกัดได้ แล้วระบบจะช่วยเติมที่อยู่ให้</p>
+              <Button type="button" variant="outline" size="sm" onClick={handleUseCurrentLocation} disabled={locationLoading}>
+                {locationLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MapPin className="mr-2 h-4 w-4" />}
+                ใช้ตำแหน่งปัจจุบัน
+              </Button>
+            </div>
             <div className="grid grid-cols-2 gap-3">
-              <Input placeholder="จังหวัด *" value={addressForm.province} onChange={(e) => updateAddr('province', e.target.value)} />
-              <Input placeholder="รหัสไปรษณีย์ *" value={addressForm.postalCode} onChange={(e) => updateAddr('postalCode', e.target.value)} />
+              <Input placeholder="Latitude" type="number" step="any" value={addressForm.latitude} onChange={(e) => updateAddr('latitude', e.target.value)} />
+              <Input placeholder="Longitude" type="number" step="any" value={addressForm.longitude} onChange={(e) => updateAddr('longitude', e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <select
+                value={addressForm.province}
+                onChange={(e) => updateAddr('province', e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="">จังหวัด *</option>
+                {THAI_PROVINCES.map((province) => (
+                  <option key={province} value={province}>
+                    {province}
+                  </option>
+                ))}
+              </select>
+              <Input placeholder="รหัสไปรษณีย์ *" inputMode="numeric" maxLength={5} value={addressForm.postalCode} onChange={(e) => updateAddr('postalCode', e.target.value)} />
             </div>
             <Input placeholder="หมายเหตุ (เช่น วางไว้หน้าประตู)" value={addressForm.notes} onChange={(e) => updateAddr('notes', e.target.value)} />
           </div>
