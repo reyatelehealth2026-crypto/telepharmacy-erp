@@ -86,10 +86,12 @@ ${buildPatientContextString(patient)}
 }`;
 
   const messages = [
-    ...history.map((m) => ({
-      role: m.role as 'user' | 'assistant',
-      content: m.content,
-    })),
+    ...history
+      .filter((m) => m && m.content && typeof m.content === 'string' && m.content.trim() !== '')
+      .map((m) => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      })),
     { role: 'user' as const, content: message },
   ];
 

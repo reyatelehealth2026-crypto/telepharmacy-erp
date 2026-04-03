@@ -42,7 +42,11 @@ export class MinioStorageService {
       try {
         const exists = await this.client.bucketExists(bucket);
         if (!exists) {
-          await this.client.makeBucket(bucket, 'us-east-1');
+          try {
+            await this.client.makeBucket(bucket, 'us-east-1');
+          } catch (mkErr: any) {
+            if (mkErr?.code !== 'BucketAlreadyOwnedByYou') throw mkErr;
+          }
           // Set public read policy
           const policy = JSON.stringify({
             Version: '2012-10-17',
