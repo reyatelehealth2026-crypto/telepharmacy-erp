@@ -11,6 +11,9 @@ import { requiresPrescriptionForClassification } from '@/lib/products';
 
 interface ProductCardProps {
   id: string;
+  sku?: string;
+  slug?: string;
+  shortSlug?: string;
   name: string;
   brand?: string;
   imageUrl?: string;
@@ -26,6 +29,9 @@ interface ProductCardProps {
 
 export function ProductCard({
   id,
+  sku,
+  slug,
+  shortSlug,
   name,
   brand,
   imageUrl,
@@ -67,7 +73,7 @@ export function ProductCard({
 
   return (
     <Link
-      href={`/product/${id}`}
+      href={`/product/${shortSlug || sku || slug || id}`}
       className="group flex flex-col overflow-hidden rounded-2xl border bg-card shadow-card transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5"
     >
       {/* Image */}
@@ -182,7 +188,7 @@ export function ProductCard({
             className="mt-1.5 w-full gap-1.5 rounded-xl text-xs"
             asChild
           >
-            <Link href={`/product/${id}`}>ดูรายละเอียด</Link>
+            <Link href={`/product/${shortSlug || sku || slug || id}`}>ดูรายละเอียด</Link>
           </Button>
         )}
       </div>

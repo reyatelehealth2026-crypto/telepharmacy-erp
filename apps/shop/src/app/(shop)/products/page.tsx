@@ -135,6 +135,9 @@ export default function ProductsPage() {
                 <ProductCard
                   key={product.id}
                   id={product.id}
+                  sku={product.sku}
+                  slug={product.slug}
+                  shortSlug={product.shortSlug}
                   name={product.nameTh}
                   brand={product.brand ?? undefined}
                   imageUrl={product.imageUrl ?? undefined}

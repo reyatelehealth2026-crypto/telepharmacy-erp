@@ -7,6 +7,7 @@ export interface Product {
   nameTh: string;
   nameEn: string | null;
   slug: string;
+  shortSlug: string;
   brand: string | null;
   genericName: string | null;
   manufacturer: string | null;
@@ -108,8 +109,8 @@ export async function getProducts(params: ProductQueryParams = {}): Promise<Prod
   return apiFetch<ProductListResponse>(`/v1/products${query}`);
 }
 
-export async function getProduct(id: string): Promise<Product> {
-  return apiFetch<Product>(`/v1/products/${id}`);
+export async function getProduct(identifier: string): Promise<Product> {
+  return apiFetch<Product>(`/v1/products/${identifier}`);
 }
 
 export async function getFeaturedProducts(limit = 8): Promise<Product[]> {

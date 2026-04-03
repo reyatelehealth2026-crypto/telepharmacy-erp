@@ -195,14 +195,14 @@ export class ProductController {
   }
 
   @Public()
-  @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.productService.findOne(id, true);
+  @Get(':identifier')
+  findOne(@Param('identifier') identifier: string) {
+    return this.productService.findOne(identifier, true);
   }
 
   @Public()
-  @Get(':id/stock')
-  getStock(@Param('id', ParseUUIDPipe) id: string) {
-    return this.productService.getStock(id);
+  @Get(':identifier/stock')
+  getStock(@Param('identifier') identifier: string) {
+    return this.productService.getStock(identifier);
   }
 }

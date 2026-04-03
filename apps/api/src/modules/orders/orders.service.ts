@@ -65,12 +65,33 @@ export class OrdersService {
         throw new BadRequestException(`Product ${product.nameTh} requires a prescription. Use Rx order flow.`);
       }
 
-      const fefoLots = await this.inventoryService.selectFefoLots(item.productId, item.quantity);
-      const primaryLot = fefoLots[0]!;
+      let fefoLots: Array<{ lotId: string; lotNo: string; quantity: number; expiryDate: string | null }> = [];
+      const reservedLots: Array<{ lotId: string; quantity: number }> = [];
+      try {
+        fefoLots = await this.inventoryService.selectFefoLots(item.productId, item.quantity);
 
-      for (const lot of fefoLots) {
-        await this.inventoryService.reserveStock(lot.lotId, lot.quantity);
+        for (const lot of fefoLots) {
+          await this.inventoryService.reserveStock(lot.lotId, lot.quantity);
+          reservedLots.push({ lotId: lot.lotId, quantity: lot.quantity });
+        }
+      } catch (error: any) {
+        for (const reserved of reservedLots) {
+          try {
+            await this.inventoryService.releaseReservedStock(reserved.lotId, reserved.quantity);
+          } catch {
+            // ignore cleanup failure
+          }
+        }
+
+        if (error instanceof BadRequestException || /stock|reserve/i.test(error?.message ?? '')) {
+          throw new BadRequestException(
+            `สต็อกสินค้า ${product.nameTh} ไม่เพียงพอสำหรับจำนวน ${item.quantity} ชิ้น กรุณาลดจำนวนหรือเลือกสินค้าอื่น`,
+          );
+        }
+        throw error;
       }
+
+      const primaryLot = fefoLots[0]!;
 
       const unitPrice = parseFloat(product.sellPrice ?? '0');
       const totalPrice = unitPrice * item.quantity;

@@ -3,7 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "next build",
+    "build": "next build && npm run postbuild",
+    "postbuild": "mkdir -p .next/standalone/apps/shop/.next && cp -R .next/static .next/standalone/apps/shop/.next/ && if [ -d public ]; then cp -R public .next/standalone/apps/shop/; fi",
     "dev": "next dev --port 3002",
     "start": "next start",
     "lint": "next lint",

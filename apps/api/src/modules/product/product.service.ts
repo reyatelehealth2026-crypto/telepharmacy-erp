@@ -122,13 +122,8 @@ export class ProductService {
 
   // ── Single product ─────────────────────────────────────────────────────────
 
-  async findOne(id: string, withRealTimeStock = false) {
-    const [row] = await this.db
-      .select()
-      .from(products)
-      .where(eq(products.id, id))
-      .limit(1);
-
+  async findOne(identifier: string, withRealTimeStock = false) {
+    const row = await this.findByIdentifier(identifier);
     if (!row) throw new NotFoundException('ไม่พบสินค้า');
 
     const formatted = this.formatProduct(row);
@@ -145,28 +140,62 @@ export class ProductService {
     return formatted;
   }
 
+  private async findByIdentifier(identifier: string) {
+    const conditions: any[] = [
+      eq(products.slug, identifier),
+      eq(products.sku, identifier),
+    ];
+
+    const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
+    if (uuidLike) {
+      conditions.unshift(eq(products.id, identifier));
+    }
+
+    const shortSkuMatch = /^sku(\d+)$/i.exec(identifier)?.[1];
+    if (shortSkuMatch) {
+      conditions.push(
+        ilike(products.sku, `${shortSkuMatch}%`),
+        ilike(products.odooCode, `${shortSkuMatch}%`),
+      );
+    }
+
+    const [row] = await this.db
+      .select()
+      .from(products)
+      .where(or(...conditions))
+      .limit(1);
+
+    return row ?? null;
+  }
+
   // ── Real-time stock ────────────────────────────────────────────────────────
 
-  async getStock(id: string) {
+  async getStock(identifier: string) {
     const [row] = await this.db
       .select({ id: products.id, odooCode: products.odooCode, stockQty: products.stockQty })
       .from(products)
-      .where(eq(products.id, id))
+      .where(
+        or(
+          eq(products.id, identifier),
+          eq(products.slug, identifier),
+          eq(products.sku, identifier),
+        ),
+      )
       .limit(1);
 
     if (!row) throw new NotFoundException('ไม่พบสินค้า');
 
     if (!row.odooCode) {
-      return { productId: id, qty: Number(row.stockQty ?? 0), source: 'db' as const };
+      return { productId: row.id, qty: Number(row.stockQty ?? 0), source: 'db' as const };
     }
 
     const liveQty = await this.getLiveStock(row.odooCode);
     if (liveQty !== null) {
       this.updateStockInDb(row.id, liveQty).catch(() => {});
-      return { productId: id, qty: liveQty, source: 'odoo' as const };
+      return { productId: row.id, qty: liveQty, source: 'odoo' as const };
     }
 
-    return { productId: id, qty: Number(row.stockQty ?? 0), source: 'db_fallback' as const };
+    return { productId: row.id, qty: Number(row.stockQty ?? 0), source: 'db_fallback' as const };
   }
 
   // ── Odoo connection test ───────────────────────────────────────────────────
@@ -463,7 +492,18 @@ export class ProductService {
       inStock: qty > 0,
       imageUrl: firstImage,
       isLowStock: qty > 0 && qty <= Number(row.reorderPoint ?? 10),
+      shortSlug: this.toShortSlug(row.sku ?? row.odooCode ?? row.slug ?? row.id),
     };
+  }
+
+  private toShortSlug(code: string): string {
+    const digits = code.match(/\d+/)?.[0];
+    if (digits) return `sku${digits}`;
+    return code
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 80) || code;
   }
 
   private toSlug(name: string, code: string): string {
