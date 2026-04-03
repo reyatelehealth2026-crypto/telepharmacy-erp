@@ -23,7 +23,7 @@ export class AiChatController {
       );
     }
     try {
-      const response = await chatWithPatientSync(body.message, body.history ?? [], undefined, {
+      const response = await chatWithPatientSync(body.message, Array.isArray(body.history) ? body.history : [], undefined, {
         geminiApiKey: geminiApiKey.trim(),
       });
       return { data: response };
