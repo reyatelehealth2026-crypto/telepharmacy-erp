@@ -124,6 +124,7 @@ export default function HealthOnboardingPage() {
           createAllergy(accessToken, {
             drugName: a.drugName,
             allergyGroup: null,
+            reactionType: 'allergic',
             severity: a.severity,
             symptoms: a.symptoms || null,
             source: 'patient_reported',

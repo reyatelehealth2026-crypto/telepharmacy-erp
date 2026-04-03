@@ -4,7 +4,9 @@ import { Queue } from 'bull';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { prescriptions, prescriptionItems } from '@telepharmacy/db';
+import { extractPrescription, extractMultiplePrescriptionImages } from '@telepharmacy/ai';
 import { DRIZZLE } from '../../database/database.constants';
+import { DynamicConfigService } from '../health/dynamic-config.service';
 
 interface PrescriptionOcrResult {
   prescriber: { name: string; licenseNo?: string; hospital?: string; department?: string };
@@ -14,14 +16,6 @@ interface PrescriptionOcrResult {
   rxDate?: string;
   confidence: number;
   rawText?: string;
-}
-
-type OcrFn = (base64: string, mimeType: string) => Promise<PrescriptionOcrResult>;
-type MultiOcrFn = (images: Array<{ base64: string; mimeType: string }>) => Promise<PrescriptionOcrResult>;
-
-function getOcrFunctions(): { extractPrescription: OcrFn; extractMultiplePrescriptionImages: MultiOcrFn } {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  return require('@telepharmacy/ai/ocr');
 }
 
 export const OCR_QUEUE = 'ocr-queue';
@@ -64,6 +58,7 @@ export class PrescriptionOcrService {
   constructor(
     @Inject(DRIZZLE) private readonly db: any,
     @InjectQueue(OCR_QUEUE) private readonly ocrQueue: Queue,
+    private readonly dynamicConfig: DynamicConfigService,
   ) {}
 
   async enqueueOcrJob(prescriptionId: string): Promise<void> {
@@ -107,7 +102,8 @@ export class PrescriptionOcrService {
     }
 
     try {
-      const ocrResult = await this.runOcr(images);
+      const geminiApiKey = await this.dynamicConfig.resolve('ai.geminiApiKey', 'GEMINI_API_KEY');
+      const ocrResult = await this.runOcr(images, geminiApiKey?.trim() || undefined);
       const validated = this.validateOcrResult(ocrResult);
       const isLowConfidence = validated.confidence < LOW_CONFIDENCE_THRESHOLD;
 
@@ -143,7 +139,10 @@ export class PrescriptionOcrService {
     }
   }
 
-  private async runOcr(images: { imageUrl: string }[]): Promise<PrescriptionOcrResult> {
+  private async runOcr(
+    images: { imageUrl: string }[],
+    geminiApiKey?: string,
+  ): Promise<PrescriptionOcrResult> {
     const base64Images = await Promise.all(
       images.map(async (img) => {
         const base64 = await this.fetchImageAsBase64(img.imageUrl);
@@ -151,11 +150,11 @@ export class PrescriptionOcrService {
       }),
     );
 
-    const { extractPrescription, extractMultiplePrescriptionImages } = getOcrFunctions();
+    const opts = { geminiApiKey };
     if (base64Images.length === 1) {
-      return extractPrescription(base64Images[0]!.base64, base64Images[0]!.mimeType);
+      return extractPrescription(base64Images[0]!.base64, base64Images[0]!.mimeType, opts);
     }
-    return extractMultiplePrescriptionImages(base64Images);
+    return extractMultiplePrescriptionImages(base64Images, opts);
   }
 
   private validateOcrResult(raw: PrescriptionOcrResult): ValidatedOcrResult {
@@ -203,6 +202,10 @@ export class PrescriptionOcrService {
   }
 
   private async fetchImageAsBase64(url: string): Promise<string> {
+    if (url.startsWith('data:')) {
+      const m = /^data:([^;]*);base64,(.+)$/i.exec(url);
+      if (m?.[2]) return m[2];
+    }
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
     const buffer = await response.arrayBuffer();

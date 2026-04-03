@@ -1,4 +1,6 @@
 import { Injectable, Inject, Logger, NotFoundException, BadRequestException, Optional } from '@nestjs/common';
+import { randomUUID } from 'crypto';
+import * as path from 'path';
 import { eq, desc, and, inArray } from 'drizzle-orm';
 import {
   prescriptions,
@@ -17,6 +19,7 @@ import { SafetyCheckEngineService } from '../drug-safety/safety-check-engine.ser
 import { PrescriptionSignatureService } from './prescription-signature.service';
 import { NotificationSenderService } from '../notifications/notification-sender.service';
 import { EventsService } from '../events/events.service';
+import { MinioStorageService } from '../telemedicine/kyc/minio.service';
 import type { CreatePrescriptionDto } from './dto/create-prescription.dto';
 import type { VerifyPrescriptionDto } from './dto/verify-prescription.dto';
 import type { PatientSafetyContext } from '../drug-safety/drug-safety.types';
@@ -31,8 +34,25 @@ export class PrescriptionService {
     private readonly safetyEngine: SafetyCheckEngineService,
     private readonly signatureService: PrescriptionSignatureService,
     private readonly notificationSender: NotificationSenderService,
+    private readonly minioStorage: MinioStorageService,
     @Optional() private readonly eventsService?: EventsService,
   ) {}
+
+  /** Upload patient prescription images and return public URLs stored for OCR. */
+  async uploadRxImages(
+    files: Array<{ buffer: Buffer; originalname: string; mimetype: string }>,
+    patientId: string,
+  ): Promise<string[]> {
+    const urls: string[] = [];
+    for (const file of files) {
+      const ext = path.extname(file.originalname || '') || '.jpg';
+      const safeExt = ext.length > 12 ? '.jpg' : ext;
+      const filename = `rx/${patientId}/${randomUUID()}${safeExt}`;
+      const url = await this.minioStorage.upload('prescriptions', filename, file.buffer);
+      urls.push(url);
+    }
+    return urls;
+  }
 
   async create(patientId: string, dto: CreatePrescriptionDto) {
     const rxNo = await this.generateRxNo();

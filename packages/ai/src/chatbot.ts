@@ -1,6 +1,6 @@
 import { streamText, generateText } from 'ai';
-import { google } from '@ai-sdk/google';
 import { AI_CONFIG, PHARMACY_SYSTEM_PROMPT } from './config';
+import { googleChatModel } from './google-model';
 import type { PatientContext, ChatMessage, ChatResponse, SymptomSearchResult } from './types';
 
 function buildPatientContextString(patient?: PatientContext): string {
@@ -41,7 +41,8 @@ function buildPatientContextString(patient?: PatientContext): string {
 export async function chatWithPatient(
   message: string,
   history: ChatMessage[] = [],
-  patient?: PatientContext
+  patient?: PatientContext,
+  options?: { geminiApiKey?: string }
 ) {
   const systemPrompt = `${PHARMACY_SYSTEM_PROMPT}\n\nข้อมูลคนไข้:\n${buildPatientContextString(patient)}`;
 
@@ -54,7 +55,7 @@ export async function chatWithPatient(
   ];
 
   const result = streamText({
-    model: google(AI_CONFIG.defaultModel),
+    model: googleChatModel(options?.geminiApiKey),
     system: systemPrompt,
     messages,
     temperature: AI_CONFIG.chatTemperature,
@@ -67,7 +68,8 @@ export async function chatWithPatient(
 export async function chatWithPatientSync(
   message: string,
   history: ChatMessage[] = [],
-  patient?: PatientContext
+  patient?: PatientContext,
+  options?: { geminiApiKey?: string }
 ): Promise<ChatResponse> {
   const systemPrompt = `${PHARMACY_SYSTEM_PROMPT}
 
@@ -92,7 +94,7 @@ ${buildPatientContextString(patient)}
   ];
 
   const { text } = await generateText({
-    model: google(AI_CONFIG.defaultModel),
+    model: googleChatModel(options?.geminiApiKey),
     system: systemPrompt,
     messages,
     temperature: AI_CONFIG.chatTemperature,
@@ -113,7 +115,8 @@ ${buildPatientContextString(patient)}
 
 export async function searchBySymptoms(
   symptoms: string,
-  patient?: PatientContext
+  patient?: PatientContext,
+  options?: { geminiApiKey?: string }
 ): Promise<SymptomSearchResult> {
   const prompt = `ลูกค้ามีอาการ: "${symptoms}"
 
@@ -138,7 +141,7 @@ ${patient ? `ข้อมูลคนไข้:\n${buildPatientContextString(pat
 }`;
 
   const { text } = await generateText({
-    model: google(AI_CONFIG.defaultModel),
+    model: googleChatModel(options?.geminiApiKey),
     system: PHARMACY_SYSTEM_PROMPT,
     prompt,
     temperature: AI_CONFIG.temperature,

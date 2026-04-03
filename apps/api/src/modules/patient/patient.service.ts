@@ -148,7 +148,7 @@ export class PatientService {
         drugName: dto.drugName,
         genericNames: dto.genericNames ?? [],
         allergyGroup: dto.allergyGroup,
-        reactionType: dto.reactionType,
+        reactionType: dto.reactionType ?? 'allergic',
         severity: dto.severity,
         symptoms: dto.symptoms,
         source: dto.source ?? 'patient_reported',

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { Home, Search, ShoppingCart, ClipboardList, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -16,7 +17,14 @@ const navItems = [
 
 export function BottomNav() {
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
   const itemCount = useCartStore((s) => s.itemCount());
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const showCartBadge = mounted && itemCount > 0;
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 shadow-nav safe-area-bottom">
@@ -53,7 +61,7 @@ export function BottomNav() {
                   <item.icon className="h-[18px] w-[18px]" />
                 </div>
 
-                {item.showBadge && itemCount > 0 && (
+                {item.showBadge && showCartBadge && (
                   <span className="absolute right-3 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-white shadow-sm animate-scale-in">
                     {itemCount > 99 ? '99+' : itemCount}
                   </span>

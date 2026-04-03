@@ -50,14 +50,14 @@ const quickActions = [
 ];
 
 const categories = [
-  { slug: 'fever-pain', icon: '🤒', name: 'ยาไข้/ปวด' },
-  { slug: 'cold-flu', icon: '🤧', name: 'ยาหวัด/ไอ' },
-  { slug: 'stomach', icon: '🫃', name: 'ยาท้อง' },
-  { slug: 'vitamins', icon: '💊', name: 'วิตามิน' },
-  { slug: 'skin-care', icon: '🧴', name: 'ดูแลผิว' },
-  { slug: 'herbal', icon: '🌿', name: 'สมุนไพร' },
-  { slug: 'baby', icon: '👶', name: 'เด็ก/ทารก' },
-  { slug: 'devices', icon: '🩺', name: 'อุปกรณ์' },
+  { href: '/search?q=ยาไข้', icon: '🤒', name: 'ยาไข้/ปวด' },
+  { href: '/search?q=ยาหวัด', icon: '🤧', name: 'ยาหวัด/ไอ' },
+  { href: '/search?q=ยาท้อง', icon: '🫃', name: 'ยาท้อง' },
+  { href: '/search?drugClassification=supplement', icon: '💊', name: 'วิตามิน' },
+  { href: '/search?drugClassification=cosmetic', icon: '🧴', name: 'ดูแลผิว' },
+  { href: '/search?drugClassification=herbal', icon: '🌿', name: 'สมุนไพร' },
+  { href: '/search?q=เด็ก', icon: '👶', name: 'เด็ก/ทารก' },
+  { href: '/search?drugClassification=device', icon: '🩺', name: 'อุปกรณ์' },
 ];
 
 export default async function HomePage() {
@@ -146,7 +146,7 @@ export default async function HomePage() {
         <div className="flex items-center justify-between">
           <h2 className="text-base font-bold">หมวดหมู่</h2>
           <Link
-            href="/categories"
+            href="/search"
             className="flex items-center gap-1 text-xs font-medium text-primary"
           >
             ดูทั้งหมด
@@ -156,8 +156,8 @@ export default async function HomePage() {
         <div className="mt-3 grid grid-cols-4 gap-2">
           {categories.map((cat) => (
             <Link
-              key={cat.slug}
-              href={`/search?category=${cat.slug}`}
+              key={cat.href}
+              href={cat.href}
               className="group flex flex-col items-center gap-1.5 rounded-2xl bg-card p-2.5 shadow-card transition-all hover:shadow-card-hover hover:-translate-y-0.5 active:scale-95"
             >
               <span className="text-2xl transition-transform group-hover:scale-110">

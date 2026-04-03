@@ -67,7 +67,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     const token = getAccessToken();
     if (!token) return;
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.re-ya.com';
 
     const socket = io(apiUrl, {
       path: '/ws',

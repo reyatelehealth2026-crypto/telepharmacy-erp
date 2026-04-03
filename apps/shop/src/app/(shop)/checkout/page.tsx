@@ -119,20 +119,18 @@ export default function CheckoutPage() {
       const token = accessToken ?? '';
       const order = await createOrder(token, {
         items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
-        shippingMethod,
-        paymentMethod,
-        addressId: selectedAddress.id,
-        address: {
-          recipientName: selectedAddress.recipientName,
-          phone: selectedAddress.phone,
+        deliveryAddress: {
           address: selectedAddress.address,
           subDistrict: selectedAddress.subDistrict,
           district: selectedAddress.district,
           province: selectedAddress.province,
           postalCode: selectedAddress.postalCode,
-          notes: selectedAddress.notes,
+          phone: selectedAddress.phone,
+          recipient: selectedAddress.recipientName,
         },
-        couponCode: couponApplied ? couponCode : undefined,
+        paymentMethod,
+        discountCode: couponApplied ? couponCode : undefined,
+        deliveryNotes: selectedAddress.notes,
       });
 
       clearCart();

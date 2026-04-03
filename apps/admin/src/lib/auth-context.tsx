@@ -65,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.re-ya.com';
     const res = await fetch(`${apiUrl}/v1/auth/staff-login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -74,7 +74,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (!res.ok) {
       const data = await res.json();
-      throw new Error(data.message ?? 'เข้าสู่ระบบไม่สำเร็จ');
+      const msg =
+        data?.error?.message ??
+        data?.message ??
+        'เข้าสู่ระบบไม่สำเร็จ';
+      throw new Error(msg);
     }
 
     const data = await res.json();
@@ -146,7 +150,11 @@ export function useAuth(): AuthContextValue {
 
 function setCookie(name: string, value: string, days: number) {
   const expires = new Date(Date.now() + days * 864e5).toUTCString();
-  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
+  const secure =
+    typeof window !== 'undefined' && window.location.protocol === 'https:'
+      ? '; Secure'
+      : '';
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax${secure}`;
 }
 
 function deleteCookie(name: string) {

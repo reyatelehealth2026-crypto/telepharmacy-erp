@@ -10,7 +10,16 @@ import {
   ParseIntPipe,
   DefaultValuePipe,
   ParseUUIDPipe,
+  BadRequestException,
+  UploadedFiles,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
+
+// multer is a transitive dependency of @nestjs/platform-express
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const multer = require('multer') as typeof import('multer');
+
 import { PrescriptionService } from './prescription.service';
 import { CreatePrescriptionDto } from './dto/create-prescription.dto';
 import { VerifyPrescriptionDto } from './dto/verify-prescription.dto';
@@ -19,9 +28,35 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
+type UploadedRxFile = { buffer: Buffer; originalname: string; mimetype: string };
+
 @Controller('prescriptions')
 export class PrescriptionController {
   constructor(private readonly prescriptionService: PrescriptionService) {}
+
+  @Post('upload')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FilesInterceptor('images', 5, {
+      storage: multer.memoryStorage(),
+      limits: { fileSize: 12 * 1024 * 1024 },
+    }),
+  )
+  async createWithUpload(
+    @CurrentUser() user: { id: string },
+    @UploadedFiles() files: UploadedRxFile[],
+    @Body() body: { notes?: string },
+  ) {
+    if (!files?.length) {
+      throw new BadRequestException('กรุณาแนบรูปใบสั่งยา');
+    }
+    const imageUrls = await this.prescriptionService.uploadRxImages(files, user.id);
+    return this.prescriptionService.create(user.id, {
+      imageUrls,
+      source: 'paper_rx',
+      diagnosis: body.notes,
+    });
+  }
 
   @Post()
   @UseGuards(JwtAuthGuard)

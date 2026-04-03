@@ -34,18 +34,23 @@ export interface JwtPayload {
   exp?: number;
 }
 
-/** Decode JWT payload without verification (client-side only). */
+/** Base64url segment → base64 with padding for atob() (JWT uses base64url, not raw base64). */
+function base64UrlToJson(base64Url: string): string {
+  const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = (4 - (base64.length % 4)) % 4;
+  const padded = base64 + '='.repeat(pad);
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
+/** Decode JWT payload without verification (client-side + Edge middleware). */
 export function decodeJwt(token: string): JwtPayload | null {
   try {
     const base64Url = token.split('.')[1];
     if (!base64Url) return null;
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const json = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join(''),
-    );
+    const json = base64UrlToJson(base64Url);
     return JSON.parse(json) as JwtPayload;
   } catch {
     return null;

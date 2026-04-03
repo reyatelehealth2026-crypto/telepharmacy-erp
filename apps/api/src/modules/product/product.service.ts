@@ -327,7 +327,7 @@ export class ProductService {
       .limit(1);
     if (!existing) throw new NotFoundException('ไม่พบสินค้า');
 
-    const updates = { updatedBy: userId, updatedAt: new Date() };
+    const updates: Record<string, any> = { updatedBy: userId, updatedAt: new Date() };
     const stringFields = ['sellPrice', 'comparePrice', 'memberPrice', 'stockQty'];
     for (const [key, val] of Object.entries(dto)) {
       if (val === undefined) continue;
@@ -385,7 +385,7 @@ export class ProductService {
         howToUse: op.howToUse ?? null,
         warnings: op.caution ?? null,
         slug,
-        unit: op.unit ?? 'ชิ้น',
+        unit: (op.unit ?? 'ชิ้น').substring(0, 20),
         sellPrice,
         comparePrice: hasDiscount ? String(op.listPrice) : null,
         stockQty: String(op.stockQty),
@@ -412,7 +412,7 @@ export class ProductService {
           odooLastSyncAt: now,
           status: op.isActive ? 'active' : 'inactive',
           barcode: op.barcode ?? null,
-          unit: op.unit ?? 'ชิ้น',
+          unit: (op.unit ?? 'ชิ้น').substring(0, 20),
           // Only update images if we have a new URL (don't overwrite manually uploaded images)
           ...(op.imageUrl ? { images } : {}),
           updatedAt: now,

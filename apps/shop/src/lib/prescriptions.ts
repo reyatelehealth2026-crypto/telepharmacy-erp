@@ -60,12 +60,12 @@ export async function uploadPrescription(
   files: File[],
   notes?: string
 ): Promise<Prescription> {
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.re-ya.com';
   const formData = new FormData();
   files.forEach((file) => formData.append('images', file));
   if (notes) formData.append('notes', notes);
 
-  const res = await fetch(`${API_BASE}/v1/prescriptions`, {
+  const res = await fetch(`${API_BASE}/v1/prescriptions/upload`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: formData,

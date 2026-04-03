@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.re-ya.com';
 
 export type ComplaintCategory = 'service' | 'product_quality' | 'delivery' | 'billing' | 'other';
 export type ComplaintSeverity = 'low' | 'medium' | 'high' | 'critical';

@@ -9,6 +9,8 @@ import { DrugSafetyModule } from '../drug-safety/drug-safety.module';
 import { DatabaseModule } from '../../database/database.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { EventsModule } from '../events/events.module';
+import { HealthModule } from '../health/health.module';
+import { KycModule } from '../telemedicine/kyc/kyc.module';
 
 @Module({
   imports: [
@@ -17,6 +19,8 @@ import { EventsModule } from '../events/events.module';
     BullModule.registerQueue({ name: OCR_QUEUE }),
     NotificationsModule,
     EventsModule,
+    HealthModule,
+    KycModule,
   ],
   providers: [PrescriptionService, PrescriptionOcrService, PrescriptionOcrProcessor, PrescriptionSignatureService],
   controllers: [PrescriptionController, PatientPrescriptionController],
