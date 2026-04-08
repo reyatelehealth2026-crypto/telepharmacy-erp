@@ -111,6 +111,12 @@ export async function apiFetch<T = unknown>(
 ): Promise<{ data: T; meta?: Record<string, unknown> }> {
   const token = await getValidToken();
 
+  // No token at all — redirect to login (cookie may still be valid but localStorage cleared)
+  if (!token && typeof window !== 'undefined') {
+    window.location.href = '/login';
+    throw new ApiRequestError(401, { code: 'UNAUTHORIZED', message: 'Not authenticated' });
+  }
+
   const headers = new Headers(options.headers);
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);

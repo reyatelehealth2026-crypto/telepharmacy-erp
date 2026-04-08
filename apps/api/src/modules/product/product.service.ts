@@ -465,7 +465,7 @@ export class ProductService {
     const manufacturer = op.vendors?.[0]?.vendor_name ?? null;
     const category = op.category ?? null;
 
-    await this.db
+    const result = await this.db
       .insert(products)
       .values({
         sku: op.sku,

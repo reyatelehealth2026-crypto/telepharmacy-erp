@@ -3,6 +3,7 @@ import { StatCard } from '@/components/stat-card';
 import { PageHeader } from '@/components/page-header';
 import { getAdminProducts } from '@/lib/products';
 import { InventoryTable } from '@/components/products/inventory-table';
+import { OdooSyncButton } from '@/components/products/odoo-sync-button';
 
 const PER_PAGE_OPTIONS = [20, 50, 100, 200];
 
@@ -41,7 +42,8 @@ export default async function InventoryPage({
   return (
     <div className="space-y-6">
       <PageHeader title="คลังสินค้า" description="จัดการสต็อกและข้อมูลจาก Odoo ERP">
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <OdooSyncButton />
           <a href="/dashboard/inventory/movements" className="inline-flex h-9 items-center rounded-lg border px-4 text-sm font-medium transition-colors hover:bg-muted">
             ประวัติเคลื่อนไหว
           </a>

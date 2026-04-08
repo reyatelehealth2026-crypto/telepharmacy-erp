@@ -8,6 +8,12 @@ import {
   FileText,
   ArrowRight,
   Leaf,
+  Thermometer,
+  Wind,
+  Droplets,
+  Baby,
+  Stethoscope,
+  type LucideIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProductCard } from '@/components/product/product-card';
@@ -49,15 +55,15 @@ const quickActions = [
   },
 ];
 
-const categories = [
-  { href: '/search?q=ยาไข้', icon: '🤒', name: 'ยาไข้/ปวด' },
-  { href: '/search?q=ยาหวัด', icon: '🤧', name: 'ยาหวัด/ไอ' },
-  { href: '/search?q=ยาท้อง', icon: '🫃', name: 'ยาท้อง' },
-  { href: '/search?drugClassification=supplement', icon: '💊', name: 'วิตามิน' },
-  { href: '/search?drugClassification=cosmetic', icon: '🧴', name: 'ดูแลผิว' },
-  { href: '/search?drugClassification=herbal', icon: '🌿', name: 'สมุนไพร' },
-  { href: '/search?q=เด็ก', icon: '👶', name: 'เด็ก/ทารก' },
-  { href: '/search?drugClassification=device', icon: '🩺', name: 'อุปกรณ์' },
+const categories: { href: string; icon: LucideIcon; color: string; name: string }[] = [
+  { href: '/search?q=ยาไข้', icon: Thermometer, color: 'text-red-500 bg-red-50', name: 'ยาไข้/ปวด' },
+  { href: '/search?q=ยาหวัด', icon: Wind, color: 'text-sky-500 bg-sky-50', name: 'ยาหวัด/ไอ' },
+  { href: '/search?q=ยาท้อง', icon: Droplets, color: 'text-amber-500 bg-amber-50', name: 'ยาท้อง' },
+  { href: '/search?drugClassification=supplement', icon: Pill, color: 'text-violet-500 bg-violet-50', name: 'วิตามิน' },
+  { href: '/search?drugClassification=cosmetic', icon: Sparkles, color: 'text-pink-500 bg-pink-50', name: 'ดูแลผิว' },
+  { href: '/search?drugClassification=herbal', icon: Leaf, color: 'text-emerald-500 bg-emerald-50', name: 'สมุนไพร' },
+  { href: '/search?q=เด็ก', icon: Baby, color: 'text-orange-500 bg-orange-50', name: 'เด็ก/ทารก' },
+  { href: '/search?drugClassification=device', icon: Stethoscope, color: 'text-teal-500 bg-teal-50', name: 'อุปกรณ์' },
 ];
 
 export default async function HomePage() {
@@ -160,9 +166,9 @@ export default async function HomePage() {
               href={cat.href}
               className="group flex flex-col items-center gap-1.5 rounded-2xl bg-card p-2.5 shadow-card transition-all hover:shadow-card-hover hover:-translate-y-0.5 active:scale-95"
             >
-              <span className="text-2xl transition-transform group-hover:scale-110">
-                {cat.icon}
-              </span>
+              <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${cat.color} transition-transform group-hover:scale-110`}>
+                <cat.icon className="h-5 w-5" />
+              </div>
               <span className="text-center text-[11px] font-medium leading-tight text-foreground/80">
                 {cat.name}
               </span>
