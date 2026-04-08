@@ -51,7 +51,7 @@ export class ProductQueryDto {
   limit?: number = 20;
 
   @IsOptional()
-  @IsEnum(['nameTh', 'sellPrice', 'stockQty', 'sortOrder', 'createdAt'])
+  @IsEnum(['nameTh', 'sellPrice', 'stockQty', 'sortOrder', 'createdAt', 'sku'])
   sortBy?: string = 'sortOrder';
 
   @IsOptional()

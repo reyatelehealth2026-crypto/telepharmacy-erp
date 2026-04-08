@@ -539,6 +539,7 @@ export class ProductService {
       stockQty: products.stockQty,
       sortOrder: products.sortOrder,
       createdAt: products.createdAt,
+      sku: products.sku,
     };
     return map[sortBy] ?? products.sortOrder;
   }

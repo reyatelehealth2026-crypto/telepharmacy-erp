@@ -1,21 +1,33 @@
-import { Warehouse, AlertTriangle, Clock, Package, TrendingDown } from 'lucide-react';
+import { Warehouse, AlertTriangle, Package, TrendingDown } from 'lucide-react';
 import { StatCard } from '@/components/stat-card';
 import { PageHeader } from '@/components/page-header';
 import { getAdminProducts } from '@/lib/products';
 import { InventoryTable } from '@/components/products/inventory-table';
 
+const PER_PAGE_OPTIONS = [20, 50, 100, 200];
+
 export default async function InventoryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string; page?: string }>;
+  searchParams: Promise<{ filter?: string; page?: string; limit?: string }>;
 }) {
   const sp = await searchParams;
   const filter = sp.filter ?? 'all';
   const page = Number(sp.page ?? 1);
+  const limit = PER_PAGE_OPTIONS.includes(Number(sp.limit)) ? Number(sp.limit) : 50;
 
-  const result = await getAdminProducts({ page, limit: 50 }).catch(() => ({
+  const inStockOnly = filter === 'in' ? true : undefined;
+
+  const result = await getAdminProducts({
+    page,
+    limit,
+    sortBy: 'sku',
+    sortOrder: 'desc',
+    inStockOnly,
+    status: 'active',
+  }).catch(() => ({
     data: [],
-    meta: { page: 1, limit: 50, total: 0, totalPages: 0 },
+    meta: { page: 1, limit, total: 0, totalPages: 0 },
   }));
 
   const allProducts = result.data;
@@ -25,13 +37,6 @@ export default async function InventoryPage({
     (sum, p) => sum + (p.sellPrice ?? 0) * p.stockQty,
     0,
   );
-
-  const filteredProducts =
-    filter === 'low'
-      ? lowStockProducts
-      : filter === 'out'
-        ? outOfStockProducts
-        : allProducts;
 
   return (
     <div className="space-y-6">
@@ -72,37 +77,73 @@ export default async function InventoryPage({
         />
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex gap-2">
-        {[
-          { label: 'ทั้งหมด', value: 'all', count: allProducts.length },
-          { label: 'สต็อกต่ำ', value: 'low', count: lowStockProducts.length },
-          { label: 'สินค้าหมด', value: 'out', count: outOfStockProducts.length },
-        ].map((tab) => (
-          <a
-            key={tab.value}
-            href={`?filter=${tab.value}`}
-            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
-              filter === tab.value
-                ? 'bg-primary text-primary-foreground'
-                : 'hover:bg-muted'
-            }`}
-          >
-            {tab.label}
-            <span
-              className={`rounded-full px-1.5 py-0.5 text-xs ${
-                filter === tab.value
-                  ? 'bg-white/20 text-white'
-                  : 'bg-muted text-muted-foreground'
-              }`}
-            >
-              {tab.count}
-            </span>
-          </a>
-        ))}
+      {/* Controls row */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* Filter tabs */}
+        <div className="flex gap-2">
+          {[
+            { label: 'ทั้งหมด', value: 'all' },
+            { label: 'สต็อกต่ำ', value: 'low' },
+            { label: 'สินค้าหมด', value: 'out' },
+          ].map((tab) => {
+            const count = tab.value === 'low' ? lowStockProducts.length
+              : tab.value === 'out' ? outOfStockProducts.length
+              : allProducts.length;
+            return (
+              <a
+                key={tab.value}
+                href={`?filter=${tab.value}&limit=${limit}`}
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+                  filter === tab.value
+                    ? 'bg-primary text-primary-foreground'
+                    : 'hover:bg-muted'
+                }`}
+              >
+                {tab.label}
+                <span className={`rounded-full px-1.5 py-0.5 text-xs ${
+                  filter === tab.value ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'
+                }`}>
+                  {count}
+                </span>
+              </a>
+            );
+          })}
+        </div>
+
+        {/* Per-page selector */}
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span>แสดง</span>
+          <div className="flex gap-1">
+            {PER_PAGE_OPTIONS.map((n) => (
+              <a
+                key={n}
+                href={`?filter=${filter}&limit=${n}`}
+                className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                  limit === n
+                    ? 'bg-primary text-primary-foreground'
+                    : 'hover:bg-muted'
+                }`}
+              >
+                {n}
+              </a>
+            ))}
+          </div>
+          <span>รายการ / หน้า</span>
+        </div>
       </div>
 
-      <InventoryTable products={filteredProducts} />
+      <InventoryTable
+        products={
+          filter === 'low' ? lowStockProducts
+          : filter === 'out' ? outOfStockProducts
+          : allProducts
+        }
+        total={result.meta.total}
+        currentPage={page}
+        totalPages={result.meta.totalPages}
+        limit={limit}
+        filter={filter}
+      />
     </div>
   );
 }

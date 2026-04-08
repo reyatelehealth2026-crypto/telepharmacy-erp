@@ -18,7 +18,7 @@ export class InboxService {
     const offset = (page - 1) * limit;
 
     const conditions = status
-      ? [eq(chatSessions.status, status)]
+      ? [eq(chatSessions.status, status as any)]
       : [];
 
     const sessions = await this.db
@@ -63,21 +63,11 @@ export class InboxService {
       }
     }
 
-    const data = sessions.map((s: any) => ({
+    // Return array directly — ResponseInterceptor wraps it in { success, data }
+    return sessions.map((s: any) => ({
       ...s,
       lastMessage: lastMessages[s.id] ?? null,
     }));
-
-    const [countResult] = await this.db
-      .select({ count: sql<number>`count(*)` })
-      .from(chatSessions)
-      .where(conditions.length ? and(...conditions) : undefined);
-
-    return {
-      success: true,
-      data,
-      meta: { page, limit, total: Number(countResult.count) },
-    };
   }
 
   async getSessionMessages(sessionId: string, limit: number) {
@@ -107,7 +97,8 @@ export class InboxService {
       .orderBy(chatMessages.createdAt)
       .limit(limit);
 
-    return { success: true, data: { session, messages } };
+    // Return plain object — ResponseInterceptor wraps it in { success, data }
+    return { session, messages };
   }
 
   async staffReply(sessionId: string, content: string, staffId: string) {
@@ -119,7 +110,6 @@ export class InboxService {
 
     if (!session) throw new NotFoundException('Session not found');
 
-    // Save message to DB
     const [message] = await this.db
       .insert(chatMessages)
       .values({
@@ -131,7 +121,6 @@ export class InboxService {
       })
       .returning();
 
-    // Update session
     await this.db
       .update(chatSessions)
       .set({
@@ -144,7 +133,6 @@ export class InboxService {
       })
       .where(eq(chatSessions.id, sessionId));
 
-    // Push message to LINE
     const lineUserId = session.lineUserId;
     if (lineUserId) {
       try {
@@ -156,7 +144,7 @@ export class InboxService {
       }
     }
 
-    return { success: true, data: message };
+    return message;
   }
 
   async assignSession(sessionId: string, staffId: string) {
@@ -178,7 +166,7 @@ export class InboxService {
       })
       .where(eq(chatSessions.id, sessionId));
 
-    return { success: true };
+    return { assigned: true };
   }
 
   async resolveSession(sessionId: string) {
@@ -199,6 +187,6 @@ export class InboxService {
       })
       .where(eq(chatSessions.id, sessionId));
 
-    return { success: true };
+    return { resolved: true };
   }
 }

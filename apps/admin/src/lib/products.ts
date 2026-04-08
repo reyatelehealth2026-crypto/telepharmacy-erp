@@ -75,6 +75,10 @@ export async function getAdminProducts(
     limit?: number;
     inStockOnly?: boolean;
     status?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    categoryId?: string;
+    drugClassification?: string;
   } = {},
 ): Promise<ProductListResponse> {
   const qs = new URLSearchParams();
