@@ -1,7 +1,7 @@
 # REYA Telepharmacy — คู่มือ Deploy ฉบับสมบูรณ์
 
 > สำหรับ DevOps / Developer
-> อัปเดต: March 31, 2026
+> อัปเดต: April 3, 2026
 
 ## สารบัญ
 
@@ -10,6 +10,8 @@
 3. [Environment Variables](#3-environment-variables)
 4. [การแก้ไขปัญหา (Troubleshooting)](#4-การแก้ไขปัญหา)
 5. [Monitoring & Maintenance](#5-monitoring--maintenance)
+
+**รูปแบบ production สรุป:** โปรเจกต์รองรับ **(A) แอปใน Docker Compose** (`docker-compose.prod.yml` + Dockerfile — รวม static ใน image แล้ว) หรือ **(B) แอปบน host ด้วย PM2** + Docker เฉพาะ infra — รายละเอียดอยู่ที่ [ขั้นที่ 9](#step-9-production)
 
 ---
 
@@ -126,9 +128,8 @@ pnpm build --filter @telepharmacy/admin
 pnpm build --filter @telepharmacy/shop
 ```
 
-### ขั้นที่ 8: Start Applications
+### ขั้นที่ 8: Start Applications — Development
 
-**Development:**
 ```bash
 pnpm dev          # ทุก app พร้อมกัน
 # หรือ
@@ -137,19 +138,62 @@ pnpm dev:admin    # Admin :3001
 pnpm dev:shop     # Shop :3002
 ```
 
-**Production:**
+<a id="step-9-production"></a>
+
+### ขั้นที่ 9: Production — เลือกแบบใดแบบหนึ่ง
+
+อย่ารัน **แบบ A กับแบบ B พร้อมกันสำหรับแอปเดียวกัน** (จะชนกันที่พอร์ต 3000–3002) — เลือกหนึ่งสายแล้วยึด runbook นั้น
+
+#### แบบ A: Docker Compose — แนะนำตาม spec / `docker-compose.prod.yml`
+
+- **Dockerfile** (`Dockerfile.api`, `Dockerfile.admin`, `Dockerfile.shop`) จัดการคัดลอก `.next/static`, `public` และ standalone ให้แล้ว — **ไม่ต้อง** รัน `make copy-*-static` แยกหลัง build
+- ตั้งค่า `.env` ให้ครบตาม [หัวข้อ 3](#3-environment-variables) และ `NEXT_PUBLIC_*` ใน `docker-compose.prod.yml` (build args)
+- จาก root ของ monorepo:
+
 ```bash
-# API
-cd apps/api && node dist/main.js
-
-# Admin (Next.js)
-cd apps/admin && pnpm start
-
-# Shop (Next.js)
-cd apps/shop && pnpm start
+make prod-build    # หรือ: docker compose -f docker-compose.yml -f docker-compose.prod.yml build
+make prod-up       # หรือ: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
-### ขั้นที่ 9: ตรวจสอบ Health
+- ดูล็อกแอป: `make prod-logs` หรือ `docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f api admin shop`
+- รีสตาร์ตแอป: `make prod-restart`
+
+Traefik + TLS ใน `docker-compose.prod.yml` จัดการ `*.re-ya.com` ตาม labels [ขั้นที่ 11](#step-11-ssl)
+
+#### แบบ B: PM2 บน host — แอปรันนอก container, Docker เฉพาะ infra
+
+เหมาะเมื่อทีม deploy บนเซิร์ฟเวอร์ด้วย `git pull` + build + process manager — **ต้อง** ทำขั้นตอนคัดลอก static หลังทุก build ของ admin/shop (Next ใช้ `output: 'standalone'`)
+
+**API (NestJS — build แล้ว):**
+
+```bash
+cd apps/api && node dist/main.js
+# หรือจัดการด้วย PM2 ให้ชี้ไปที่ dist/main.js
+```
+
+**Admin & Shop (Next.js standalone + PM2):**
+
+หลัง `pnpm build` (หรือ `pnpm --filter @telepharmacy/shop build` / `admin`) ให้รัน:
+
+```bash
+make copy-shop-static
+make copy-admin-static
+```
+
+หรือรวม build + copy + reload PM2:
+
+```bash
+make deploy-shop
+make deploy-admin
+```
+
+ถ้าเซิร์ฟเวอร์ไม่มี `make` ให้ใช้คำสั่ง `rm`/`cp` ตามเป้าหมาย `copy-shop-static` / `copy-admin-static` ใน **`Makefile`** ที่ root
+
+จากนั้นรัน `node` จาก `apps/*/ .next/standalone/.../server.js` ตามที่ PM2 กำหนด (ดู `script path` ใน `pm2 show`)
+
+**หมายเหตุ:** แบบ B ไม่ต้องใช้ `docker compose logs` สำหรับ api/admin/shop — ใช้ `pm2 logs` หรือไฟล์ใน `apps/*/logs/` ตามที่ตั้งค่า
+
+### ขั้นที่ 10: ตรวจสอบ Health
 
 ```bash
 # API Health
@@ -159,9 +203,11 @@ curl http://localhost:3000/v1/health
 curl http://localhost:3000/v1/health/ready
 ```
 
-### ขั้นที่ 10: ตั้งค่า SSL (Production)
+<a id="step-11-ssl"></a>
 
-Traefik จัดการ Let's Encrypt อัตโนมัติ เพียงตั้งค่า domain:
+### ขั้นที่ 11: ตั้งค่า SSL (Production)
+
+Traefik จัดการ Let's Encrypt อัตโนมัติ เพียงตั้งค่า domain (ใช้ร่วมกับ **แบบ A** หรือเมื่อ Traefik ชี้ไปที่พอร์ตแอปของ **แบบ B**):
 
 ```yaml
 # docker-compose.prod.yml
@@ -292,7 +338,7 @@ services:
 แก้ไข:
 1. ตรวจสอบ OMISE_PUBLIC_KEY, OMISE_SECRET_KEY
 2. เปิดใช้ PromptPay ใน Omise Dashboard
-3. ตรวจสอบ log: docker compose logs api | grep -i omise
+3. ตรวจสอบ log API (Docker: `docker compose ... logs api` — PM2: `pm2 logs telepharmacy-api`) แล้ว grep omise
 ```
 
 ### 4.5 Telemedicine / Video Call
@@ -316,7 +362,21 @@ services:
 3. ตรวจสอบ IAM permissions: rekognition:CompareFaces, rekognition:DetectFaces
 ```
 
-### 4.6 Build Errors
+### 4.6 Next.js production / standalone
+
+**ปัญหา: หน้า Shop/Admin ขาว หรือข้อความ client-side exception / `ChunkLoadError` / โหลด `/_next/static/chunks/*.js` ไม่ได้**
+
+```
+สาเหตุ (แบบ B — PM2): หลัง build ยังไม่ได้คัดลอก .next/static และ public เข้าไปในโฟลเดอร์ standalone
+แก้ไข:
+1. รัน make copy-shop-static และ make copy-admin-static (หรือคำสั่ง cp จาก Makefile)
+2. reload process (เช่น pm2 reload telepharmacy-shop / telepharmacy-admin)
+3. ตรวจสอบว่า URL static ตอบ 200: curl -sI https://shop.re-ya.com/_next/static/chunks/...
+
+สาเหตุ (แบบ A — Docker): หายาก — image ควรรวม static แล้ว — ถ้าเจอให้ rebuild image โดยไม่ cache เก่า และตรวจสอบ Dockerfile.* ว่า COPY .next/static ครบ
+```
+
+### 4.7 Build Errors
 
 **ปัญหา: `Module not found: @telepharmacy/db`**
 ```
@@ -337,7 +397,7 @@ services:
 ถ้ายังมีปัญหา: pnpm build --filter @telepharmacy/db
 ```
 
-### 4.7 MinIO / Storage
+### 4.8 MinIO / Storage
 
 **ปัญหา: Upload ไฟล์ไม่ได้**
 ```
@@ -348,7 +408,7 @@ services:
 4. Production: ตรวจสอบ MINIO_USE_SSL=true
 ```
 
-### 4.8 Meilisearch
+### 4.9 Meilisearch
 
 **ปัญหา: ค้นหาสินค้าไม่ทำงาน**
 ```
@@ -396,16 +456,15 @@ docker exec telepharmacy-minio mc mirror local/telepharmacy /backup/minio/
 
 ### Log Management
 
+**แอปรันใน Docker (แบบ A):**
+
 ```bash
-# ดู API logs
-docker compose logs -f api
-
-# ดู logs ทุก service
+docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f api admin shop
 docker compose logs -f
-
-# Filter errors
 docker compose logs api 2>&1 | grep -i error
 ```
+
+**แอปรัน PM2 (แบบ B):** `docker compose logs` สำหรับ api/admin/shop จะไม่มี — ใช้ `pm2 logs` หรือไฟล์ใน `apps/api` / `apps/admin` / `apps/shop` ตามที่ตั้งค่า
 
 ### Health Check Cron
 

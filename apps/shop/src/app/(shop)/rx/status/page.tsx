@@ -101,7 +101,7 @@ export default function RxStatusPage() {
                 <p className="mt-1 text-xs text-muted-foreground">
                   {new Date(rx.createdAt).toLocaleDateString('th-TH')}
                   {rx.itemCount > 0 && ` · ${rx.itemCount} รายการ`}
-                  {rx.totalAmount && ` · ${rx.totalAmount.toLocaleString()} ฿`}
+                  {rx.totalAmount != null && ` · ${rx.totalAmount.toLocaleString()} ฿`}
                 </p>
               </div>
               <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />

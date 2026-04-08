@@ -10,14 +10,18 @@ import { cn } from '@/lib/utils';
 
 interface MR { id: string; patientId: string; status: string; medications: string[]; concerns?: string; createdAt: string; }
 interface TDM { id: string; patientId: string; drugName: string; status: string; createdAt: string; }
+interface ListResult<T> { data: T[]; page: number; limit: number; }
 
 export default function ClinicalPage() {
   const [tab, setTab] = useState<'mr' | 'tdm'>('mr');
-  const { data: mrData, isLoading: mrLoading } = useApi<MR[]>('/v1/drug-info/medication-review?limit=50');
-  const { data: tdmData, isLoading: tdmLoading } = useApi<TDM[]>('/v1/drug-info/tdm?limit=50');
+  const { data: mrResult, isLoading: mrLoading } = useApi<ListResult<MR>>('/v1/drug-info/medication-review?limit=50');
+  const { data: tdmResult, isLoading: tdmLoading } = useApi<ListResult<TDM>>('/v1/drug-info/tdm?limit=50');
 
-  const mrPending = (mrData ?? []).filter(r => r.status === 'pending' || r.status === 'in_progress');
-  const tdmPending = (tdmData ?? []).filter(r => r.status === 'pending' || r.status === 'in_progress');
+  const mrData = mrResult?.data ?? [];
+  const tdmData = tdmResult?.data ?? [];
+
+  const mrPending = mrData.filter(r => r.status === 'pending' || r.status === 'in_progress');
+  const tdmPending = tdmData.filter(r => r.status === 'pending' || r.status === 'in_progress');
 
   return (
     <div className="space-y-6">
@@ -25,9 +29,9 @@ export default function ClinicalPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard title="MR รอดำเนินการ" value={mrPending.length} icon={Pill} />
-        <StatCard title="MR ทั้งหมด" value={(mrData ?? []).length} icon={Pill} />
+        <StatCard title="MR ทั้งหมด" value={mrData.length} icon={Pill} />
         <StatCard title="TDM รอดำเนินการ" value={tdmPending.length} icon={Activity} />
-        <StatCard title="TDM ทั้งหมด" value={(tdmData ?? []).length} icon={Activity} />
+        <StatCard title="TDM ทั้งหมด" value={tdmData.length} icon={Activity} />
       </div>
 
       <div className="flex gap-2">

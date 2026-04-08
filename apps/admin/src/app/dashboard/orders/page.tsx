@@ -30,7 +30,7 @@ interface Order {
 
 interface OrdersResponse {
   data: Order[];
-  meta: { page: number; limit: number; total: number; totalPages: number };
+  meta: { page: number; limit: number; total?: number; totalPages?: number };
 }
 
 type StatusFilter = 'all' | 'awaiting_payment' | 'paid' | 'processing' | 'packed' | 'shipped' | 'delivered' | 'completed' | 'cancelled';
@@ -83,7 +83,12 @@ export default function OrdersPage() {
   const { data: result, isLoading, mutate } = useApi<OrdersResponse>(apiPath);
 
   const orders = result?.data ?? [];
-  const meta = result?.meta ?? { page: 1, limit: 20, total: 0, totalPages: 0 };
+  const meta = {
+    page: result?.meta?.page ?? 1,
+    limit: result?.meta?.limit ?? 20,
+    total: result?.meta?.total ?? 0,
+    totalPages: result?.meta?.totalPages ?? 0,
+  };
 
   return (
     <div className="space-y-6">
@@ -186,7 +191,7 @@ export default function OrdersPage() {
                       <span className="rounded-full bg-muted px-2 py-0.5 text-xs capitalize">{order.orderType}</span>
                     </td>
                     <td className="px-4 py-3 font-medium">
-                      ฿{parseFloat(order.totalAmount).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                      ฿{parseFloat(order.totalAmount ?? '0').toLocaleString('th-TH', { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-4 py-3">
                       <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', STATUS_BADGE[order.status] ?? 'bg-muted')}>

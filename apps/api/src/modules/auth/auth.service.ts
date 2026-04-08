@@ -419,6 +419,37 @@ export class AuthService {
     return { type: TokenType.STAFF, ...staffMember };
   }
 
+  async updateProfile(
+    staffId: string,
+    updates: { licenseNo?: string; firstName?: string; lastName?: string },
+  ) {
+    const fields: Record<string, string> = {};
+    if (updates.licenseNo !== undefined) fields['licenseNo'] = updates.licenseNo;
+    if (updates.firstName !== undefined) fields['firstName'] = updates.firstName;
+    if (updates.lastName !== undefined) fields['lastName'] = updates.lastName;
+
+    if (Object.keys(fields).length === 0) {
+      throw new BadRequestException('ไม่มีข้อมูลที่ต้องการอัปเดต');
+    }
+
+    const [updated] = await this.db
+      .update(staff)
+      .set(fields)
+      .where(eq(staff.id, staffId))
+      .returning({
+        id: staff.id,
+        email: staff.email,
+        firstName: staff.firstName,
+        lastName: staff.lastName,
+        role: staff.role,
+        licenseNo: staff.licenseNo,
+        avatarUrl: staff.avatarUrl,
+      });
+
+    if (!updated) throw new NotFoundException('ไม่พบข้อมูลพนักงาน');
+    return updated;
+  }
+
   private async generatePatientTokens(patient: any) {
     const payload: JwtPayload = {
       sub: patient.id,

@@ -10,7 +10,9 @@ import {
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { IsArray, IsString, IsOptional, IsInt, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ProductService } from './product.service';
@@ -138,6 +140,20 @@ class SyncAllDto {
   maxCode?: number;
 }
 
+class SyncBatchDto {
+  @IsInt()
+  @Min(1)
+  @Max(9999)
+  @Type(() => Number)
+  from!: number;
+
+  @IsInt()
+  @Min(1)
+  @Max(9999)
+  @Type(() => Number)
+  to!: number;
+}
+
 @Controller('products')
 export class ProductController {
   constructor(private readonly productService: ProductService) {}
@@ -156,6 +172,55 @@ export class ProductController {
   @HttpCode(HttpStatus.OK)
   syncAllFromOdoo(@Body() body: SyncAllDto) {
     return this.productService.syncAllFromOdoo(body.maxCode ?? 1000);
+  }
+
+  /**
+   * Streaming SSE endpoint — emits progress events while syncing a numeric range.
+   * Usage: POST /v1/products/sync-batch  body: { from: 1, to: 200 }
+   * Events: data: <JSON>\n\n
+   */
+  @Roles('pharmacist', 'super_admin', 'pharmacist_tech')
+  @Post('sync-batch')
+  async syncBatch(@Body() body: SyncBatchDto, @Res() res: Response) {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    const send = (data: object) => {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    send({ type: 'start', from: body.from, to: body.to, total: body.to - body.from + 1 });
+
+    try {
+      const result = await this.productService.syncBatch(
+        body.from,
+        body.to,
+        (event) => {
+          send({ type: 'progress', ...event });
+        },
+      );
+      send({ type: 'done', ...result });
+    } catch (err) {
+      send({ type: 'error', message: String(err) });
+    }
+
+    res.end();
+  }
+
+  @Roles('pharmacist', 'super_admin', 'pharmacist_tech')
+  @Post('bulk-close-all')
+  @HttpCode(HttpStatus.OK)
+  bulkCloseAll() {
+    return this.productService.bulkCloseAll();
+  }
+
+  @Roles('pharmacist', 'super_admin', 'pharmacist_tech')
+  @Post('bulk-close-rx')
+  @HttpCode(HttpStatus.OK)
+  bulkCloseRx() {
+    return this.productService.bulkCloseRx();
   }
 
   @Roles('pharmacist', 'super_admin', 'pharmacist_tech')

@@ -135,11 +135,12 @@ function SuccessContent() {
 
         <div className="mt-3 flex items-center gap-2 rounded-lg bg-muted p-2">
           <p className="flex-1 text-xs text-muted-foreground">
-            พร้อมเพย์: 0-1234-56789-0
+            พร้อมเพย์: {process.env.NEXT_PUBLIC_PROMPTPAY_ID || order?.payment?.promptpayRef || '-'}
           </p>
           <button
             onClick={() => {
-              navigator.clipboard.writeText('0123456789');
+              const ppId = process.env.NEXT_PUBLIC_PROMPTPAY_ID || order?.payment?.promptpayRef || '';
+              if (ppId) navigator.clipboard.writeText(ppId);
               toast.success('คัดลอกแล้ว');
             }}
             className="rounded p-1 hover:bg-background"

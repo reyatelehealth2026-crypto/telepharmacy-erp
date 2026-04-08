@@ -46,6 +46,7 @@ export interface Order {
     status: string;
     qrCodeUrl: string | null;
     paidAt: string | null;
+    promptpayRef?: string | null;
   };
   prescriptionId: string | null;
   createdAt: string;
@@ -106,18 +107,20 @@ export async function getOrder(token: string, orderId: string): Promise<Order> {
 }
 
 export async function uploadPaymentSlip(token: string, orderId: string, file: File): Promise<{ verified: boolean; message: string }> {
-  const formData = new FormData();
-  formData.append('slip', file);
-
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.re-ya.com';
-  const res = await fetch(`${API_BASE}/v1/orders/${orderId}/slip`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body: formData,
+  // Convert file to base64 data URL to send as slipUrl
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
   });
 
-  if (!res.ok) throw new Error('Upload failed');
-  return res.json();
+  const res = await api.post<any>(`/v1/orders/${orderId}/slip`, { slipUrl: dataUrl }, token);
+  const payload = res?.data ?? res;
+  return {
+    verified: payload?.verified ?? payload?.status === 'verified',
+    message: payload?.message ?? 'ส่งสลิปแล้ว',
+  };
 }
 
 export async function reOrder(token: string, orderId: string): Promise<Order> {

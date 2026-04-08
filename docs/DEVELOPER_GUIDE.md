@@ -291,3 +291,7 @@ cd apps/api && pnpm test:e2e
 2. Export จาก `packages/db/src/schema/index.ts`
 3. `pnpm build --filter @telepharmacy/db`
 4. `pnpm db:push`
+
+### Deploy production / staging
+
+ดูคู่มือเดียวที่ใช้ทั้งโปรเจกต์: **[`DEPLOYMENT_GUIDE.md`](DEPLOYMENT_GUIDE.md)** — มีแยก **แบบ Docker Compose** (`make prod-up`) กับ **แบบ PM2 บน host** (`make deploy-shop` / `deploy-admin` และขั้นตอน copy static)

@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
   Body,
   HttpCode,
   HttpStatus,
@@ -86,6 +87,15 @@ export class AuthController {
   @Get('me')
   getProfile(@CurrentUser() user: RequestUser) {
     return this.authService.getProfile(user);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('me')
+  updateProfile(
+    @CurrentUser() user: RequestUser,
+    @Body() body: { licenseNo?: string; firstName?: string; lastName?: string },
+  ) {
+    return this.authService.updateProfile(user.id, body);
   }
 
   // ─── Account Linking ──────────────────────────────────────────

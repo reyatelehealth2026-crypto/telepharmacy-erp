@@ -6,7 +6,6 @@ import { z } from 'zod';
 import { prescriptions, prescriptionItems } from '@telepharmacy/db';
 import { extractPrescription, extractMultiplePrescriptionImages } from '@telepharmacy/ai';
 import { DRIZZLE } from '../../database/database.constants';
-import { MinioStorageService } from '../telemedicine/kyc/minio.service';
 import { DynamicConfigService } from '../health/dynamic-config.service';
 
 interface PrescriptionOcrResult {
@@ -60,7 +59,6 @@ export class PrescriptionOcrService {
     @Inject(DRIZZLE) private readonly db: any,
     @InjectQueue(OCR_QUEUE) private readonly ocrQueue: Queue,
     private readonly dynamicConfig: DynamicConfigService,
-    private readonly minioStorage: MinioStorageService,
   ) {}
 
   async enqueueOcrJob(prescriptionId: string): Promise<void> {
@@ -207,27 +205,6 @@ export class PrescriptionOcrService {
     if (url.startsWith('data:')) {
       const m = /^data:([^;]*);base64,(.+)$/i.exec(url);
       if (m?.[2]) return m[2];
-    }
-    // For MinIO URLs, stream directly from the MinIO client.
-    // Supports localhost, old public host, and temporary /minio path route.
-    if (url.includes('localhost') || url.includes('127.0.0.1') || url.includes('minio.telepharmacy.com') || url.includes('minio.re-ya.com') || url.includes('/minio/')) {
-      try {
-        const urlObj = new URL(url);
-        const rawPath = urlObj.pathname.replace(/^\//, '');
-        const pathAfterMinio = rawPath.startsWith('minio/') ? rawPath.slice('minio/'.length) : rawPath.replace(/^minio\//, '');
-        const parts = pathAfterMinio.split('/').filter(Boolean);
-        const bucket = parts[0];
-        const objectName = parts.slice(1).join('/');
-        const client = (this.minioStorage as any).client;
-        const stream = await client.getObject(bucket, objectName);
-        const chunks: Buffer[] =[];
-        for await (const chunk of stream) {
-          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-        }
-        return Buffer.concat(chunks).toString('base64');
-      } catch (e) {
-        this.logger.warn(`MinIO direct fetch failed for ${url}, falling back to HTTP: ${e}`);
-      }
     }
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
