@@ -124,7 +124,7 @@ export default function DashboardPage() {
           description={urgentCount > 0 ? `${urgentCount} urgent/high` : undefined}
         />
         <StatCard
-          title="ผู้ป่วยใหม่วันนี้"
+          title="ลูกค้าใหม่วันนี้"
           value={summaryLoading ? '...' : String(summary?.newPatients ?? 0)}
           icon={Users}
         />

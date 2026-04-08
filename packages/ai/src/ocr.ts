@@ -1,14 +1,15 @@
 import { generateText } from 'ai';
-import { google } from '@ai-sdk/google';
 import { AI_CONFIG, OCR_PRESCRIPTION_PROMPT, OCR_SLIP_PROMPT } from './config';
+import { googleVisionModel } from './google-model';
 import type { PrescriptionOcrResult, SlipOcrResult } from './types';
 
 export async function extractPrescription(
   imageBase64: string,
-  mimeType: string = 'image/jpeg'
+  mimeType: string = 'image/jpeg',
+  options?: { geminiApiKey?: string }
 ): Promise<PrescriptionOcrResult> {
   const { text } = await generateText({
-    model: google(AI_CONFIG.visionModel),
+    model: googleVisionModel(options?.geminiApiKey),
     messages: [
       {
         role: 'user',
@@ -50,10 +51,11 @@ export async function extractPrescription(
 
 export async function extractSlip(
   imageBase64: string,
-  mimeType: string = 'image/jpeg'
+  mimeType: string = 'image/jpeg',
+  options?: { geminiApiKey?: string }
 ): Promise<SlipOcrResult> {
   const { text } = await generateText({
-    model: google(AI_CONFIG.visionModel),
+    model: googleVisionModel(options?.geminiApiKey),
     messages: [
       {
         role: 'user',
@@ -93,7 +95,8 @@ export async function extractSlip(
 }
 
 export async function extractMultiplePrescriptionImages(
-  images: Array<{ base64: string; mimeType?: string }>
+  images: Array<{ base64: string; mimeType?: string }>,
+  options?: { geminiApiKey?: string }
 ): Promise<PrescriptionOcrResult> {
   const content = images.flatMap((img) => [
     {
@@ -110,7 +113,7 @@ export async function extractMultiplePrescriptionImages(
   });
 
   const { text } = await generateText({
-    model: google(AI_CONFIG.visionModel),
+    model: googleVisionModel(options?.geminiApiKey),
     messages: [{ role: 'user', content: content as any }],
     temperature: 0.1,
     maxTokens: AI_CONFIG.maxTokens,

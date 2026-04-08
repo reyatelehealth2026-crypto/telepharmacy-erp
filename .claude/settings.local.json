@@ -30,7 +30,9 @@
       "Bash(curl -s https://shop.re-ya.com)",
       "Bash(node:*)",
       "Bash(head -c 100 echo \"\" echo \"Current settings file exists, checking content...\" node -e \"const fs=require\\(''''fs''''\\); const c=fs.readFileSync\\(''''C:/Users/Administrator/telepharmacy-erp/apps/admin/src/app/dashboard/settings/page.tsx'''',''''utf8''''\\); console.log\\(''''Lines:'''', c.split\\(''''\\\\n''''\\).length\\); console.log\\(''''Has cursor-pointer:'''', c.includes\\(''''cursor-pointer''''\\)\\);\")",
-      "Bash(pnpm install:*)"
+      "Bash(pnpm install:*)",
+      "Skill(update-config)",
+      "WebSearch"
     ]
   }
 }

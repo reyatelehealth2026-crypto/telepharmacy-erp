@@ -35,7 +35,7 @@ export default function OrdersPage() {
 
     getMyOrders(accessToken)
       .then((res) => {
-        const list = Array.isArray(res) ? res : (res?.data ?? []);
+        const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
         setOrders(list);
       })
       .catch((err) => toast.error(err.message || 'โหลดคำสั่งซื้อไม่สำเร็จ'))

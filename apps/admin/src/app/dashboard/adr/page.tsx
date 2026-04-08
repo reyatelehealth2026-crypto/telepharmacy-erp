@@ -44,7 +44,8 @@ export default function AdrDashboardPage() {
   qs.set('page', String(page));
   qs.set('limit', '20');
 
-  const { data, isLoading } = useApi<AdrReport[]>(`/v1/adr?${qs}`);
+  const { data: adrResult, isLoading } = useApi<{ data: AdrReport[]; page: number; limit: number }>(`/v1/adr?${qs}`);
+  const data = adrResult?.data ?? [];
 
   async function handleExport() {
     setExporting(true);

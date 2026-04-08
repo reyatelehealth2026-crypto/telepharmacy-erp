@@ -102,14 +102,21 @@ export default function InboxPage() {
                     {s.patientFirstName} {s.patientLastName}
                   </span>
                   <span className="text-[10px] text-muted-foreground">
-                    {s.updatedAt && !isNaN(new Date(s.updatedAt).getTime()) 
+                    {s.updatedAt && !isNaN(new Date(s.updatedAt).getTime())
                       ? new Date(s.updatedAt).toLocaleString('th-TH', {
                           hour: '2-digit',
                           minute: '2-digit',
                           day: '2-digit',
                           month: 'short',
                         })
-                      : '-'}
+                      : s.createdAt && !isNaN(new Date(s.createdAt).getTime())
+                        ? new Date(s.createdAt).toLocaleString('th-TH', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            day: '2-digit',
+                            month: 'short',
+                          })
+                        : '-'}
                   </span>
                 </div>
                 {s.lastMessage && (
@@ -283,10 +290,12 @@ function ChatPanel({ sessionId, onUpdate }: { sessionId: string; onUpdate: () =>
                 'mt-1 text-[10px]',
                 m.role === 'pharmacist' ? 'text-primary-foreground/60' : 'text-muted-foreground',
               )}>
-                {new Date(m.createdAt).toLocaleTimeString('th-TH', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+                {m.createdAt && !isNaN(new Date(m.createdAt).getTime())
+                  ? new Date(m.createdAt).toLocaleTimeString('th-TH', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })
+                  : ''}
               </p>
             </div>
           </div>

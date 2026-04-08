@@ -35,7 +35,16 @@ export async function getMyNotifications(
     `/v1/notifications/me?page=${page}&limit=${limit}`,
     token,
   );
-  return res as NotificationsResponse;
+  // ResponseInterceptor wraps the controller payload in res.data. Controller returns { success, data: rows[], unreadCount, ... }.
+  const outer = res?.data ?? res;
+  const rows = Array.isArray(outer?.data) ? outer.data : [];
+  return {
+    data: rows,
+    unreadCount: typeof outer?.unreadCount === 'number' ? outer.unreadCount : 0,
+    total: typeof outer?.total === 'number' ? outer.total : rows.length,
+    page: typeof outer?.page === 'number' ? outer.page : page,
+    limit: typeof outer?.limit === 'number' ? outer.limit : limit,
+  };
 }
 
 export async function markRead(

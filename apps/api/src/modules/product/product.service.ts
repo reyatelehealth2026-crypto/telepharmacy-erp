@@ -175,6 +175,67 @@ export class ProductService {
     return this.odooService.testConnection();
   }
 
+  // ── Batch sync by numeric range (avoids HTTP timeout on large sets) ─────────
+
+  async syncBatch(
+    fromCode: number,
+    toCode: number,
+    onProgress?: (event: { done: number; total: number; current: string; status: 'ok' | 'skip' | 'error'; synced: number; errors: number }) => void,
+  ): Promise<{ synced: number; errors: number; skipped: number; details: string[] }> {
+    const total = toCode - fromCode + 1;
+    let synced = 0;
+    let errors = 0;
+    let skipped = 0;
+    const details: string[] = [];
+
+    for (let i = fromCode; i <= toCode; i++) {
+      const code = String(i).padStart(4, '0');
+      let status: 'ok' | 'skip' | 'error' = 'skip';
+      try {
+        const product = await this.odooService.getProduct(code);
+        if (!product) {
+          skipped++;
+          details.push(`SKIP ${code}: not found in Odoo`);
+        } else {
+          await this.upsertFromOdoo(product);
+          synced++;
+          status = 'ok';
+          details.push(`OK ${code}: ${product.nameTh} (฿${product.onlinePrice ?? product.listPrice})`);
+        }
+      } catch (err) {
+        this.logger.error(`Failed to sync product ${code}`, err);
+        errors++;
+        status = 'error';
+        details.push(`ERR ${code}: ${String(err)}`);
+      }
+      onProgress?.({ done: i - fromCode + 1, total, current: code, status, synced, errors });
+    }
+
+    return { synced, errors, skipped, details };
+  }
+
+  // ── Bulk close all active products ─────────────────────────────────────────
+
+  async bulkCloseAll(): Promise<{ updated: number }> {
+    const result = await this.db
+      .update(products)
+      .set({ status: 'inactive', updatedAt: new Date() })
+      .where(sql`${products.status} = 'active'`)
+      .returning({ id: products.id });
+    return { updated: result.length };
+  }
+
+  // ── Bulk close Rx-required products ────────────────────────────────────────
+
+  async bulkCloseRx(): Promise<{ updated: number }> {
+    const result = await this.db
+      .update(products)
+      .set({ status: 'inactive', updatedAt: new Date() })
+      .where(and(sql`${products.status} = 'active'`, eq(products.requiresPrescription, true)))
+      .returning({ id: products.id });
+    return { updated: result.length };
+  }
+
   // ── Discover & bulk sync all products from image server ────────────────────
 
   async syncAllFromOdoo(maxCode = 1000): Promise<{
@@ -327,7 +388,7 @@ export class ProductService {
       .limit(1);
     if (!existing) throw new NotFoundException('ไม่พบสินค้า');
 
-    const updates = { updatedBy: userId, updatedAt: new Date() };
+    const updates: Record<string, any> = { updatedBy: userId, updatedAt: new Date() };
     const stringFields = ['sellPrice', 'comparePrice', 'memberPrice', 'stockQty'];
     for (const [key, val] of Object.entries(dto)) {
       if (val === undefined) continue;
@@ -370,8 +431,10 @@ export class ProductService {
     const slug = this.toSlug(op.nameTh, op.odooCode);
     const sellPrice = String(op.onlinePrice ?? op.listPrice);
     const hasDiscount = op.onlinePrice !== null && op.onlinePrice < op.listPrice;
-    // Build images array: use imageUrl if available
     const images = op.imageUrl ? [op.imageUrl] : [];
+    // Manufacturer from first vendor entry
+    const manufacturer = op.vendors?.[0]?.vendor_name ?? null;
+    const category = op.category ?? null;
 
     await this.db
       .insert(products)
@@ -394,6 +457,8 @@ export class ProductService {
         status: op.isActive ? 'active' : 'inactive',
         barcode: op.barcode ?? null,
         images,
+        brand: manufacturer,
+        ...(category ? { shortDescription: (op.description ? op.description + ' | ' : '') + 'หมวด: ' + category } : {}),
       })
       .onConflictDoUpdate({
         target: products.sku,
@@ -413,7 +478,7 @@ export class ProductService {
           status: op.isActive ? 'active' : 'inactive',
           barcode: op.barcode ?? null,
           unit: (op.unit ?? 'ชิ้น').substring(0, 20),
-          // Only update images if we have a new URL (don't overwrite manually uploaded images)
+          brand: manufacturer,
           ...(op.imageUrl ? { images } : {}),
           updatedAt: now,
         },

@@ -419,6 +419,37 @@ export class AuthService {
     return { type: TokenType.STAFF, ...staffMember };
   }
 
+  async updateProfile(
+    staffId: string,
+    updates: { licenseNo?: string; firstName?: string; lastName?: string },
+  ) {
+    const fields: Record<string, string> = {};
+    if (updates.licenseNo !== undefined) fields['licenseNo'] = updates.licenseNo;
+    if (updates.firstName !== undefined) fields['firstName'] = updates.firstName;
+    if (updates.lastName !== undefined) fields['lastName'] = updates.lastName;
+
+    if (Object.keys(fields).length === 0) {
+      throw new BadRequestException('ไม่มีข้อมูลที่ต้องการอัปเดต');
+    }
+
+    const [updated] = await this.db
+      .update(staff)
+      .set(fields)
+      .where(eq(staff.id, staffId))
+      .returning({
+        id: staff.id,
+        email: staff.email,
+        firstName: staff.firstName,
+        lastName: staff.lastName,
+        role: staff.role,
+        licenseNo: staff.licenseNo,
+        avatarUrl: staff.avatarUrl,
+      });
+
+    if (!updated) throw new NotFoundException('ไม่พบข้อมูลพนักงาน');
+    return updated;
+  }
+
   private async generatePatientTokens(patient: any) {
     const payload: JwtPayload = {
       sub: patient.id,
@@ -487,14 +518,27 @@ export class AuthService {
         throw new UnauthorizedException('LINE access token ไม่ถูกต้อง');
       }
       const verifyData = (await verifyRes.json()) as { client_id: string; expires_in: number };
+      const clientId = String(verifyData.client_id);
 
-      // Resolve channelId: prefer LIFF-derived (Login channel) → env LINE_CHANNEL_ID
-      // LIFF tokens are always issued by the Login channel (prefix of LIFF ID)
-      const liffId = await this.dynamicConfig.resolve('line.liffId', 'LINE_LIFF_ID');
-      const liffChannelId = liffId?.split('-')[0] || '';
-      const envChannelId = await this.dynamicConfig.resolve('line.channelId', 'LINE_CHANNEL_ID');
-      const channelId = liffChannelId || envChannelId || '';
-      if (verifyData.client_id !== channelId) {
+      // Accept if token's channel matches any trusted source. DB (system_config) can override
+      // env — if an admin saved a wrong LIFF ID in DB, LINE login would fail; always union
+      // process.env so deploy stays consistent with Shop NEXT_PUBLIC_LIFF_ID / LINE_CHANNEL_ID.
+      const liffIdResolved = await this.dynamicConfig.resolve('line.liffId', 'LINE_LIFF_ID');
+      const channelIdResolved = await this.dynamicConfig.resolve('line.channelId', 'LINE_CHANNEL_ID');
+      const fromEnvLiff = process.env.LINE_LIFF_ID?.split('-')[0]?.trim() ?? '';
+      const fromEnvChannel = process.env.LINE_CHANNEL_ID?.trim() ?? '';
+      const candidates = new Set(
+        [
+          liffIdResolved?.split('-')[0]?.trim(),
+          channelIdResolved?.trim(),
+          fromEnvLiff,
+          fromEnvChannel,
+        ].filter((x): x is string => Boolean(x)),
+      );
+      if (!candidates.has(clientId)) {
+        this.logger.warn(
+          `LINE channel mismatch: verify client_id=${clientId}, candidates=[${[...candidates].join(', ')}]`,
+        );
         throw new UnauthorizedException('LINE channel ไม่ตรงกัน');
       }
 

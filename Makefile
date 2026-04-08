@@ -2,6 +2,7 @@
 .PHONY: infra infra-down infra-logs infra-ps
 .PHONY: db-push db-generate db-migrate db-studio
 .PHONY: prod-build prod-up prod-down prod-logs prod-restart
+.PHONY: copy-shop-static copy-admin-static deploy-shop deploy-admin
 .PHONY: health lint type-check test format
 
 help: ## แสดงคำสั่งทั้งหมด
@@ -96,3 +97,33 @@ health: ## ตรวจสอบ API health
 
 health-ready: ## ตรวจสอบ API readiness (DB connection)
 	@curl -sf http://localhost:3000/v1/health/ready | python -m json.tool 2>/dev/null || curl -sf http://localhost:3000/v1/health/ready || echo "API is not ready"
+
+# ─── Standalone Static Copy (REQUIRED after every Next.js build) ──────────────
+# Next.js standalone mode does NOT auto-copy static assets; must copy manually.
+# Run these after `pnpm --filter @telepharmacy/shop build` (or admin build).
+
+copy-shop-static: ## คัดลอก static assets ไปยัง standalone output (shop)
+	rm -rf apps/shop/.next/standalone/apps/shop/.next/static
+	cp -r apps/shop/.next/static apps/shop/.next/standalone/apps/shop/.next/static
+	rm -rf apps/shop/.next/standalone/apps/shop/public
+	cp -r apps/shop/public apps/shop/.next/standalone/apps/shop/public
+	@echo "✅ Shop static assets copied to standalone"
+
+copy-admin-static: ## คัดลอก static assets ไปยัง standalone output (admin)
+	rm -rf apps/admin/.next/standalone/apps/admin/.next/static
+	cp -r apps/admin/.next/static apps/admin/.next/standalone/apps/admin/.next/static
+	rm -rf apps/admin/.next/standalone/apps/admin/public
+	cp -r apps/admin/public apps/admin/.next/standalone/apps/admin/public
+	@echo "✅ Admin static assets copied to standalone"
+
+deploy-shop: ## Build shop + copy static + reload PM2
+	pnpm --filter @telepharmacy/shop build
+	$(MAKE) copy-shop-static
+	npx pm2 reload telepharmacy-shop
+	@echo "✅ Shop deployed"
+
+deploy-admin: ## Build admin + copy static + reload PM2
+	pnpm --filter @telepharmacy/admin build
+	$(MAKE) copy-admin-static
+	npx pm2 reload telepharmacy-admin
+	@echo "✅ Admin deployed"

@@ -93,7 +93,7 @@ const INTERVENTION_LABELS: Record<string, string> = {
 const TABS: { key: ReportTab; label: string; icon: React.ElementType }[] = [
   { key: 'sales', label: 'ยอดขาย', icon: TrendingUp },
   { key: 'loyalty', label: 'โปรโมชั่น & Loyalty', icon: Gift },
-  { key: 'demographics', label: 'ข้อมูลผู้ป่วย', icon: Users },
+  { key: 'demographics', label: 'ข้อมูลลูกค้า', icon: Users },
   { key: 'inventory', label: 'สุขภาพคลัง', icon: Package },
 ];
 
@@ -287,7 +287,7 @@ function exportRegistrations(data: ReturnType<typeof generateMockRegistrations>)
 function exportProvinceData(data: ReturnType<typeof generateMockProvinceData>) {
   const columns: CsvColumn<(typeof data)[0]>[] = [
     { header: 'จังหวัด', accessor: (r) => r.province },
-    { header: 'จำนวนผู้ป่วย', accessor: (r) => r.count },
+    { header: 'จำนวนลูกค้า', accessor: (r) => r.count },
   ];
   exportToCsv(data, columns, `province-distribution-${new Date().toISOString().slice(0, 10)}.csv`);
 }
@@ -478,7 +478,7 @@ function SalesTab({
           icon={BarChart3}
         />
         <StatCard
-          title="ผู้ป่วยใหม่"
+          title="ลูกค้าใหม่"
           value={summaryLoading ? '...' : String(summary?.newPatients ?? 0)}
           icon={Users}
         />
@@ -804,7 +804,7 @@ function DemographicsTab({
       {/* Summary Stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard title="ลงทะเบียนใหม่" value={totalRegistrations.toLocaleString()} icon={Users} description="ช่วงที่เลือก" />
-        <StatCard title="ผู้ป่วยทั้งหมด" value={totalPatients.toLocaleString()} icon={Users} />
+        <StatCard title="ลูกค้าทั้งหมด" value={totalPatients.toLocaleString()} icon={Users} />
         <StatCard title="เพศชาย" value={totalMale.toLocaleString()} icon={Users} description={`${Math.round((totalMale / (totalMale + totalFemale)) * 100)}%`} />
         <StatCard title="เพศหญิง" value={totalFemale.toLocaleString()} icon={Users} description={`${Math.round((totalFemale / (totalMale + totalFemale)) * 100)}%`} />
       </div>
@@ -812,7 +812,7 @@ function DemographicsTab({
       <div className="grid gap-6 lg:grid-cols-2">
         {/* New Registrations Over Time */}
         <div className="rounded-xl border bg-card p-6 shadow-sm">
-          <h3 className="font-semibold">ผู้ป่วยลงทะเบียนใหม่</h3>
+          <h3 className="font-semibold">ลูกค้าลงทะเบียนใหม่</h3>
           <p className="mt-1 text-sm text-muted-foreground">จำนวนการลงทะเบียนรายวัน</p>
           <div className="mt-4 h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -833,7 +833,7 @@ function DemographicsTab({
         {/* Geographic Distribution */}
         <div className="rounded-xl border bg-card p-6 shadow-sm">
           <h3 className="font-semibold">การกระจายตามจังหวัด</h3>
-          <p className="mt-1 text-sm text-muted-foreground">จำนวนผู้ป่วยแต่ละจังหวัด (Top 10)</p>
+          <p className="mt-1 text-sm text-muted-foreground">จำนวนลูกค้าแต่ละจังหวัด (Top 10)</p>
           <div className="mt-4 h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={provinceData} layout="vertical">

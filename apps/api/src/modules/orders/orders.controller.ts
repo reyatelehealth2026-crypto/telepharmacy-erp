@@ -9,8 +9,10 @@ import {
   ParseIntPipe,
   DefaultValuePipe,
   ParseUUIDPipe,
+  BadRequestException,
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
+import { PaymentService } from '../payment/payment.service';
 import { CreateOtcOrderDto } from './dto/create-otc-order.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -18,7 +20,10 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 @Controller('orders')
 @UseGuards(JwtAuthGuard)
 export class OrdersPatientController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(
+    private readonly ordersService: OrdersService,
+    private readonly paymentService: PaymentService,
+  ) {}
 
   @Post()
   createOtcOrder(
@@ -61,5 +66,25 @@ export class OrdersPatientController {
     @CurrentUser() user: any,
   ) {
     return this.ordersService.reorder(id, user.id);
+  }
+
+  @Post(':id/slip')
+  async uploadSlip(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: any,
+    @Body('slipUrl') slipUrl: string,
+  ) {
+    if (!slipUrl) throw new BadRequestException('กรุณาระบุ URL ของสลิป');
+    return this.paymentService.uploadSlip(id, user.id, slipUrl);
+  }
+
+  @Post('validate-coupon')
+  async validateCoupon(
+    @Body('code') code: string,
+    @Body('subtotal') subtotal: number,
+    @CurrentUser() user: any,
+  ) {
+    if (!code) throw new BadRequestException('กรุณากรอกรหัสส่วนลด');
+    return this.ordersService.validateCoupon(code, subtotal, user.id);
   }
 }

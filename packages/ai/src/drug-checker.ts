@@ -1,6 +1,6 @@
 import { generateText } from 'ai';
-import { google } from '@ai-sdk/google';
 import { AI_CONFIG, DRUG_SAFETY_PROMPT } from './config';
+import { googleChatModel } from './google-model';
 import type { PatientContext, SafetyCheckResult, DrugInteraction, AllergyAlert } from './types';
 
 interface DrugToCheck {
@@ -13,7 +13,8 @@ interface DrugToCheck {
 
 export async function checkDrugSafety(
   drugs: DrugToCheck[],
-  patient: PatientContext
+  patient: PatientContext,
+  options?: { geminiApiKey?: string }
 ): Promise<SafetyCheckResult> {
   const drugList = drugs
     .map(
@@ -55,7 +56,7 @@ ${drugList}
 5. Dose appropriateness (ถ้ามีข้อมูลเพียงพอ)`;
 
   const { text } = await generateText({
-    model: google(AI_CONFIG.defaultModel),
+    model: googleChatModel(options?.geminiApiKey),
     system: DRUG_SAFETY_PROMPT,
     prompt,
     temperature: 0.1,
@@ -148,7 +149,8 @@ export function checkLocalAllergyMatch(
 }
 
 export async function checkDrugInteractions(
-  drugs: string[]
+  drugs: string[],
+  options?: { geminiApiKey?: string }
 ): Promise<DrugInteraction[]> {
   if (drugs.length < 2) return [];
 
@@ -171,7 +173,7 @@ ${drugs.map((d, i) => `${i + 1}. ${d}`).join('\n')}
 ถ้าไม่มี interaction ให้ตอบ []`;
 
   const { text } = await generateText({
-    model: google(AI_CONFIG.defaultModel),
+    model: googleChatModel(options?.geminiApiKey),
     prompt,
     temperature: 0.1,
     maxTokens: 2048,

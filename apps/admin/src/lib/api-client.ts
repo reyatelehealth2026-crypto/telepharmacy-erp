@@ -1,6 +1,6 @@
 import { isTokenExpired } from './auth-types';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.re-ya.com';
 
 /** Token storage keys. */
 const ACCESS_TOKEN_KEY = 'access_token';

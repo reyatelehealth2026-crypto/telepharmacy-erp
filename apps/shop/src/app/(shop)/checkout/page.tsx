@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -28,6 +28,7 @@ import { useAuthStore } from '@/store/auth';
 import { useAuthGuard } from '@/lib/use-auth-guard';
 import { formatPrice } from '@/lib/utils';
 import { createOrder, validateCoupon, SHIPPING_OPTIONS, type ShippingMethod, type PaymentMethod } from '@/lib/orders';
+import { syncAddresses } from '@/lib/address-api';
 import { toast } from 'sonner';
 
 type CheckoutStep = 'address' | 'review';
@@ -46,6 +47,12 @@ export default function CheckoutPage() {
   const { accessToken } = useAuthStore();
 
   const [step, setStep] = useState<CheckoutStep>(addresses.length > 0 ? 'review' : 'address');
+
+  useEffect(() => {
+    if (accessToken) {
+      syncAddresses(accessToken).catch(() => {});
+    }
+  }, [accessToken]);
   const [shippingMethod, setShippingMethod] = useState<ShippingMethod>('standard');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('promptpay');
   const [couponCode, setCouponCode] = useState('');

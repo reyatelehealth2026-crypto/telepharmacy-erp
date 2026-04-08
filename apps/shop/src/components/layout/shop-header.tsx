@@ -1,11 +1,19 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { Bell, ShoppingCart, Search } from 'lucide-react';
 import { useCartStore } from '@/store/cart';
 
 export function ShopHeader() {
+  const [mounted, setMounted] = useState(false);
   const itemCount = useCartStore((s) => s.itemCount());
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const showCartBadge = mounted && itemCount > 0;
 
   return (
     <header className="sticky top-0 z-40 border-b bg-primary text-white shadow-md">
@@ -31,7 +39,7 @@ export function ShopHeader() {
               className="relative flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-white/15"
             >
               <ShoppingCart className="h-5 w-5" />
-              {itemCount > 0 && (
+              {showCartBadge && (
                 <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm">
                   {itemCount > 99 ? '99+' : itemCount}
                 </span>

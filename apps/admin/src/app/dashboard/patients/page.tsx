@@ -62,8 +62,8 @@ export default function PatientsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="ข้อมูลผู้ป่วย"
-        description="จัดการข้อมูลผู้ป่วยและประวัติสุขภาพ"
+        title="ข้อมูลลูกค้า"
+        description="จัดการข้อมูลลูกค้าและประวัติสุขภาพ"
       >
         <form
           onSubmit={(e) => { e.preventDefault(); handleSearch(); }}
@@ -75,7 +75,7 @@ export default function PatientsPage() {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="ค้นหาชื่อ, เลขผู้ป่วย, เบอร์โทร..."
+              placeholder="ค้นหาชื่อ, รหัสลูกค้า, เบอร์โทร..."
               className="h-9 w-72 rounded-lg border pl-9 pr-3 text-sm outline-none ring-ring/20 placeholder:text-muted-foreground focus:ring-2"
             />
           </div>
@@ -90,7 +90,7 @@ export default function PatientsPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="ผู้ป่วยทั้งหมด"
+          title="ลูกค้าทั้งหมด"
           value={isLoading ? '...' : meta.total.toLocaleString()}
           icon={Users}
         />
@@ -118,7 +118,7 @@ export default function PatientsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/50 text-left">
-                <th className="px-4 py-3 font-medium">เลขผู้ป่วย</th>
+                <th className="px-4 py-3 font-medium">รหัสลูกค้า</th>
                 <th className="px-4 py-3 font-medium">ชื่อ-นามสกุล</th>
                 <th className="px-4 py-3 font-medium">อายุ</th>
                 <th className="px-4 py-3 font-medium">เพศ</th>
@@ -140,7 +140,7 @@ export default function PatientsPage() {
                 <tr>
                   <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
                     <Users className="mx-auto h-8 w-8" />
-                    <p className="mt-2">ไม่พบข้อมูลผู้ป่วย</p>
+                    <p className="mt-2">ไม่พบข้อมูลลูกค้า</p>
                   </td>
                 </tr>
               ) : (

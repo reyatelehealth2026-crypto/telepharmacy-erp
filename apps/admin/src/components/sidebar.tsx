@@ -39,7 +39,7 @@ const navigation: {
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'คิวใบสั่งยา', href: '/dashboard/pharmacist', icon: ClipboardList, roles: ['pharmacist', 'super_admin', 'pharmacist_tech'], badgeKey: 'prescriptions' },
   { name: 'ออเดอร์', href: '/dashboard/orders', icon: ShoppingCart, badgeKey: 'orders' },
-  { name: 'ผู้ป่วย', href: '/dashboard/patients', icon: Users, roles: ['pharmacist', 'super_admin', 'pharmacist_tech', 'customer_service'] },
+  { name: 'ลูกค้า', href: '/dashboard/patients', icon: Users, roles: ['pharmacist', 'super_admin', 'pharmacist_tech', 'customer_service'] },
   { name: 'สินค้า', href: '/dashboard/products', icon: Pill },
   { name: 'โปรโมชั่น', href: '/dashboard/promotions', icon: Tag, roles: ['pharmacist', 'super_admin'] },
   { name: 'บทความ', href: '/dashboard/content', icon: FileText, roles: ['pharmacist', 'super_admin'] },

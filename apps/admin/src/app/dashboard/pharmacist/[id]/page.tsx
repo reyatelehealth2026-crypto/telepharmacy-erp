@@ -22,6 +22,7 @@ import { api } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/page-header';
 import { SLA_MINUTES } from '@/lib/auth-types';
+import { useAuth } from '@/lib/auth-context';
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -99,7 +100,7 @@ const INTERVENTION_TYPES = [
   { value: 'dose_adjustment', label: 'ปรับขนาดยา' },
   { value: 'therapeutic_duplication', label: 'ยาซ้ำซ้อน' },
   { value: 'formulary_substitution', label: 'เปลี่ยนยาตามบัญชี' },
-  { value: 'patient_education', label: 'ให้ความรู้ผู้ป่วย' },
+  { value: 'patient_education', label: 'ให้ความรู้ลูกค้า' },
   { value: 'prescriber_contact', label: 'ติดต่อแพทย์' },
   { value: 'other', label: 'อื่นๆ' },
 ];
@@ -123,6 +124,7 @@ export default function PrescriptionReviewPage() {
   const { data: patient, isLoading: patientLoading } =
     useApi<PatientProfile>(rx?.patientId ? `/v1/staff/patients/${rx.patientId}` : null);
 
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'review' | 'intervention' | 'counseling'>('review');
   const [submitting, setSubmitting] = useState(false);
   const [decision, setDecision] = useState<string>('');
@@ -131,16 +133,25 @@ export default function PrescriptionReviewPage() {
   const [interventionNote, setInterventionNote] = useState('');
   const [counselingMethod, setCounselingMethod] = useState('line_chat');
   const [counselingNotes, setCounselingNotes] = useState('');
+  const [licenseInput, setLicenseInput] = useState('');
 
   const isVerified = rx?.status === 'approved' || rx?.status === 'rejected' || rx?.status === 'partial';
+  const needsLicense = !user?.licenseNo && !licenseInput.trim();
 
   async function handleVerify(dec: string) {
     if (dec === 'rejected' && !rejectionReason.trim()) {
       alert('กรุณาระบุเหตุผลที่ปฏิเสธ');
       return;
     }
+    if (!user?.licenseNo && !licenseInput.trim()) {
+      alert('กรุณากรอกเลขใบอนุญาตเภสัชกรก่อนอนุมัติ');
+      return;
+    }
     setSubmitting(true);
     try {
+      if (!user?.licenseNo && licenseInput.trim()) {
+        await api.patch('/v1/auth/me', { licenseNo: licenseInput.trim() });
+      }
       await api.patch(`/v1/prescriptions/${rxId}/verify`, {
         decision: dec,
         rejectionReason: dec === 'rejected' ? rejectionReason : undefined,
@@ -368,7 +379,7 @@ export default function PrescriptionReviewPage() {
           {/* Patient Profile */}
           <div className="rounded-xl border bg-card p-4 shadow-sm">
             <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-              <User className="h-4 w-4" /> ข้อมูลผู้ป่วย
+              <User className="h-4 w-4" /> ข้อมูลลูกค้า
             </h3>
             {patientLoading ? (
               <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
@@ -451,7 +462,7 @@ export default function PrescriptionReviewPage() {
                 </Link>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">ไม่พบข้อมูลผู้ป่วย</p>
+              <p className="text-sm text-muted-foreground">ไม่พบข้อมูลลูกค้า</p>
             )}
           </div>
 
@@ -499,6 +510,21 @@ export default function PrescriptionReviewPage() {
                     </div>
                   ) : (
                     <>
+                      {!user?.licenseNo && (
+                        <div>
+                          <label className="text-xs font-semibold text-amber-700">
+                            เลขใบอนุญาตเภสัชกร <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={licenseInput}
+                            onChange={(e) => setLicenseInput(e.target.value)}
+                            placeholder="เช่น ภก. 12345"
+                            className="mt-1 w-full rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-amber-400"
+                          />
+                          <p className="mt-0.5 text-[10px] text-amber-600">จำเป็นต้องกรอกก่อนอนุมัติ — ระบบจะบันทึกไว้กับบัญชีของคุณ</p>
+                        </div>
+                      )}
                       <div>
                         <label className="text-xs font-medium">เหตุผลปฏิเสธ (ถ้าปฏิเสธ)</label>
                         <textarea

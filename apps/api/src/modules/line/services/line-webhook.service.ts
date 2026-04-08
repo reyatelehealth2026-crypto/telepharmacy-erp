@@ -10,6 +10,7 @@ import { SmartOrderParserService } from './smart-order-parser.service';
 import { SentimentService } from './sentiment.service';
 import { EventsService } from '../../events/events.service';
 import { PrescriptionService } from '../../prescription/prescription.service';
+import { DynamicConfigService } from '../../health/dynamic-config.service';
 import type {
   LineWebhookEvent,
   LineMessageEvent,
@@ -35,6 +36,7 @@ export class LineWebhookService {
     private readonly smartOrderParser: SmartOrderParserService,
     private readonly sentimentService: SentimentService,
     private readonly config: ConfigService,
+    private readonly dynamicConfig: DynamicConfigService,
     @Optional() private readonly prescriptionService?: PrescriptionService,
     @Optional() private readonly eventsService?: EventsService,
   ) {
@@ -254,7 +256,10 @@ export class LineWebhookService {
   ): Promise<void> {
 
     try {
-      const aiResponse = await chatWithPatientSync(text, [], undefined);
+      const geminiApiKey = await this.dynamicConfig.resolve('ai.geminiApiKey', 'GEMINI_API_KEY');
+      const aiResponse = await chatWithPatientSync(text, [], undefined, {
+        geminiApiKey: geminiApiKey?.trim() || undefined,
+      });
 
       // Determine if AI can handle this query
       const aiCanHandle =
