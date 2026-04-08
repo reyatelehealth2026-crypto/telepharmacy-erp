@@ -59,7 +59,6 @@ export const inventoryLots = pgTable("inventory_lots", {
 export const stockMovements = pgTable("stock_movements", {
   id: uuid("id").primaryKey().defaultRandom(),
   lotId: uuid("lot_id")
-    .notNull()
     .references(() => inventoryLots.id),
   productId: uuid("product_id")
     .notNull()

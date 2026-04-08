@@ -234,6 +234,7 @@ export const stockMovementTypeEnum = pgEnum("stock_movement_type", [
   "write_off",
   "transfer_in",
   "transfer_out",
+  "odoo_sync",
 ]);
 
 export const membershipTierEnum = pgEnum("membership_tier", [

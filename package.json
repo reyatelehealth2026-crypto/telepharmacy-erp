@@ -23,7 +23,13 @@
     "db:seed": "pnpm --filter @telepharmacy/db db:seed",
     "clean": "turbo run clean",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\""
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
+    "e2e:headed": "playwright test --headed",
+    "e2e:install": "playwright install chromium",
+    "e2e:journey": "playwright test e2e/admin-journey.spec.ts",
+    "e2e:deep": "playwright test e2e/admin-deep-demo.spec.ts"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -34,6 +40,8 @@
     ]
   },
   "devDependencies": {
+    "@types/node": "^22",
+    "@playwright/test": "^1.51.0",
     "turbo": "^2",
     "prettier": "^3",
     "typescript": "^5"

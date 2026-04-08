@@ -1,7 +1,7 @@
 import { Injectable, Logger, Inject, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { eq, ilike, and, sql, asc, desc, or } from 'drizzle-orm';
-import { products } from '@telepharmacy/db';
+import { products, stockMovements } from '@telepharmacy/db';
 import { DRIZZLE } from '../../database/database.constants';
 import { OdooService } from '../odoo/odoo.service';
 import type { ProductQueryDto } from './dto/product-query.dto';
@@ -511,7 +511,23 @@ export class ProductService {
           ...(op.imageUrl ? { images } : {}),
           updatedAt: now,
         },
+      })
+      .returning({ id: products.id, sku: products.sku });
+
+    // Record Odoo sync movement (lotId nullable — no lot needed for direct sync)
+    if (result.length > 0 && op.stockQty > 0) {
+      const productId = result[0]!.id;
+      await this.db.insert(stockMovements).values({
+        productId,
+        movementType: 'odoo_sync' as any,
+        quantity: String(op.stockQty),
+        reason: `Odoo sync: ${op.nameTh} (${op.odooCode})`,
+        referenceType: 'odoo',
+      }).catch(() => {
+        // Non-critical: log but don't fail sync
+        this.logger.warn(`Could not record sync movement for ${op.odooCode}`);
       });
+    }
   }
 
   private async getLiveStock(odooCode: string): Promise<number | null> {

@@ -27,7 +27,7 @@ import { ConfigService } from '@nestjs/config';
 
 @Controller('staff/line')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('pharmacist', 'super_admin', 'marketing')
+@Roles('pharmacist', 'super_admin', 'marketing', 'customer_service', 'pharmacist_tech', 'accounting')
 export class LineStaffController {
   private readonly shopUrl: string;
 
