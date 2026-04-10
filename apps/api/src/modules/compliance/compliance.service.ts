@@ -8,7 +8,7 @@ import {
   prescriptions,
 } from '@telepharmacy/db';
 import { DRIZZLE } from '../../database/database.constants';
-import { AuditService } from './audit.service';
+import { AuditService } from '../audit/audit.service';
 import { LineClientService } from '../line/services/line-client.service';
 import type { LogAuditEventDto, ConsentRecordDto } from './dto/data-request.dto';
 import type { CreateBreachReportDto } from './dto/data-breach.dto';

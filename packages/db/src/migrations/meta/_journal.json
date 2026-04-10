@@ -29,6 +29,27 @@
       "when": 1774950000000,
       "tag": "0003_friendly_hyena_lagoon",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1775672874107,
+      "tag": "0004_nasty_tempest",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1775774901959,
+      "tag": "0005_smooth_harry_osborn",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1775775665284,
+      "tag": "0006_daffy_johnny_blaze",
+      "breakpoints": true
     }
   ]
 }

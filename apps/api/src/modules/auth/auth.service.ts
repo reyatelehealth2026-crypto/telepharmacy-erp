@@ -11,8 +11,16 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
-import { eq, desc, and, isNull } from 'drizzle-orm';
-import { staff, patients, accountLinkTokens } from '@telepharmacy/db';
+import { eq, desc, and, isNull, sql } from 'drizzle-orm';
+import {
+  staff,
+  patients,
+  accountLinkTokens,
+  chatSessions,
+  orders,
+  prescriptions,
+  lineContactJourneys,
+} from '@telepharmacy/db';
 import { DRIZZLE } from '../../database/database.constants';
 import { DynamicConfigService } from '../health/dynamic-config.service';
 import { TokenType } from './auth.constants';
@@ -58,9 +66,23 @@ export class AuthService {
           lineLinkedAt: new Date(),
         })
         .returning();
+
+      await this.syncLineJourneyState({
+        patientId: patient.id,
+        lineUserId: lineProfile.userId,
+        state: 'new_unregistered',
+        currentStep: 'line_login',
+        metadata: { displayName: lineProfile.displayName ?? null },
+      });
     } else {
-      // Check if patient has completed registration (has phone number)
-      isRegistered = !!patient.phone;
+      isRegistered = this.isPatientRegistered(patient);
+
+      await this.syncLineJourneyState({
+        patientId: patient.id,
+        lineUserId: lineProfile.userId,
+        state: this.getJourneyStateForPatient(patient),
+        currentStep: 'line_login',
+      });
     }
 
     const tokens = await this.generatePatientTokens(patient);
@@ -250,6 +272,14 @@ export class AuthService {
         .returning();
     }
 
+    await this.syncLineJourneyState({
+      patientId: patient.id,
+      lineUserId: patient.lineUserId,
+      state: 'linked_returning',
+      currentStep: 'completed',
+      completed: true,
+    });
+
     const tokens = await this.generatePatientTokens(patient);
 
     return {
@@ -291,6 +321,55 @@ export class AuthService {
     return { token, expiresAt: expiresAt.toISOString() };
   }
 
+  async claimLineAccount(input: {
+    patientNo: string;
+    phone: string;
+    dateOfBirth: string;
+    lineUserId: string;
+  }) {
+    if (!input.patientNo || !input.phone || !input.dateOfBirth || !input.lineUserId) {
+      throw new BadRequestException('กรุณากรอกข้อมูลสำหรับเชื่อมบัญชีให้ครบถ้วน');
+    }
+
+    const patient = await this.findPatientByClaimIdentity(
+      input.patientNo,
+      input.phone,
+      input.dateOfBirth,
+    );
+
+    if (!patient) {
+      throw new BadRequestException('ไม่พบข้อมูลสมาชิกที่ตรงกัน');
+    }
+
+    if (patient.lineUserId === input.lineUserId) {
+      const tokens = await this.generatePatientTokens(patient);
+
+      await this.syncLineJourneyState({
+        patientId: patient.id,
+        lineUserId: input.lineUserId,
+        state: this.getJourneyStateForPatient(patient),
+        currentStep: 'completed',
+        completed: this.hasCompletedJourneyProfile(patient),
+      });
+
+      return {
+        ...tokens,
+        tokenType: 'Bearer',
+        patient: {
+          id: patient.id,
+          patientNo: patient.patientNo,
+          firstName: patient.firstName,
+          lastName: patient.lastName,
+          isRegistered: this.isPatientRegistered(patient),
+        },
+        message: 'บัญชี LINE นี้เชื่อมต่ออยู่แล้ว',
+      };
+    }
+
+    const { token } = await this.requestAccountLink(patient.id);
+    return this.confirmAccountLink(token, input.lineUserId);
+  }
+
   /**
    * Confirm account link — bind patientId to LINE userId using the token.
    */
@@ -314,6 +393,16 @@ export class AuthService {
       throw new BadRequestException('โทเค็นหมดอายุแล้ว');
     }
 
+    const [targetPatient] = await this.db
+      .select()
+      .from(patients)
+      .where(eq(patients.id, linkToken.patientId))
+      .limit(1);
+
+    if (!targetPatient) {
+      throw new NotFoundException('ไม่พบข้อมูลผู้ป่วยสำหรับเชื่อมบัญชี');
+    }
+
     // Check if LINE user is already linked to another patient
     const [existingLink] = await this.db
       .select()
@@ -322,7 +411,13 @@ export class AuthService {
       .limit(1);
 
     if (existingLink && existingLink.id !== linkToken.patientId) {
-      throw new ConflictException('บัญชี LINE นี้เชื่อมต่อกับผู้ป่วยรายอื่นแล้ว');
+      const claimable = await this.canClaimStubLinePatient(existingLink);
+
+      if (!claimable) {
+        throw new ConflictException('บัญชี LINE นี้เชื่อมต่อกับผู้ป่วยรายอื่นแล้ว กรุณาติดต่อเจ้าหน้าที่');
+      }
+
+      await this.rebindClaimableLineStub(existingLink.id, linkToken.patientId, lineUserId);
     }
 
     // Bind LINE user to patient
@@ -347,6 +442,15 @@ export class AuthService {
       .where(eq(patients.id, linkToken.patientId))
       .limit(1);
 
+    await this.syncLineJourneyState({
+      patientId: patient.id,
+      lineUserId,
+      state: this.getJourneyStateForPatient(patient),
+      currentStep: 'completed',
+      completed: this.hasCompletedJourneyProfile(patient),
+      metadata: { linkedPatientId: patient.id },
+    });
+
     const tokens = await this.generatePatientTokens(patient);
 
     this.logger.log(`Account linked: patient ${linkToken.patientId} → LINE ${lineUserId}`);
@@ -359,6 +463,7 @@ export class AuthService {
         patientNo: patient.patientNo,
         firstName: patient.firstName,
         lastName: patient.lastName,
+        isRegistered: this.isPatientRegistered(patient),
       },
       message: 'เชื่อมต่อบัญชี LINE สำเร็จ',
     };
@@ -448,6 +553,160 @@ export class AuthService {
 
     if (!updated) throw new NotFoundException('ไม่พบข้อมูลพนักงาน');
     return updated;
+  }
+
+  private isPatientRegistered(patient: any) {
+    return !!patient?.phone;
+  }
+
+  private hasCompletedJourneyProfile(patient: any) {
+    return !!patient?.phone && !!patient?.birthDate;
+  }
+
+  private getJourneyStateForPatient(patient: any) {
+    return this.hasCompletedJourneyProfile(patient)
+      ? 'linked_returning'
+      : 'stub_unfinished';
+  }
+
+  private normalizePhone(phone: string) {
+    return phone.replace(/\D/g, '');
+  }
+
+  private async findPatientByClaimIdentity(
+    patientNo: string,
+    phone: string,
+    dateOfBirth: string,
+  ) {
+    const candidates = await this.db
+      .select()
+      .from(patients)
+      .where(
+        and(
+          eq(patients.patientNo, patientNo.trim()),
+          eq(patients.birthDate, dateOfBirth),
+          isNull(patients.deletedAt),
+        ),
+      )
+      .limit(5);
+
+    const normalizedPhone = this.normalizePhone(phone);
+
+    return (
+      candidates.find(
+        (candidate: any) =>
+          this.normalizePhone(candidate.phone ?? '') === normalizedPhone,
+      ) ?? null
+    );
+  }
+
+  private async canClaimStubLinePatient(patient: any) {
+    if (!patient) {
+      return false;
+    }
+
+    if (patient.phone || patient.birthDate || patient.nationalId) {
+      return false;
+    }
+
+    const [orderStats] = await this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(orders)
+      .where(eq(orders.patientId, patient.id));
+
+    const [rxStats] = await this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(prescriptions)
+      .where(eq(prescriptions.patientId, patient.id));
+
+    return (orderStats?.count ?? 0) === 0 && (rxStats?.count ?? 0) === 0;
+  }
+
+  private async rebindClaimableLineStub(
+    stubPatientId: string,
+    targetPatientId: string,
+    lineUserId: string,
+  ) {
+    const now = new Date();
+
+    await this.db
+      .update(chatSessions)
+      .set({
+        patientId: targetPatientId,
+        updatedAt: now,
+      })
+      .where(eq(chatSessions.patientId, stubPatientId));
+
+    await this.db
+      .update(patients)
+      .set({
+        lineUserId: null,
+        lineLinkedAt: null,
+        updatedAt: now,
+      })
+      .where(eq(patients.id, stubPatientId));
+
+    await this.syncLineJourneyState({
+      patientId: targetPatientId,
+      lineUserId,
+      state: 'link_pending',
+      currentStep: 'claim_rebind',
+      metadata: { reboundFromPatientId: stubPatientId },
+    });
+  }
+
+  private async syncLineJourneyState(input: {
+    patientId: string;
+    lineUserId?: string | null;
+    state: 'new_unregistered' | 'stub_unfinished' | 'link_pending' | 'linked_returning';
+    currentStep?: string | null;
+    completed?: boolean;
+    metadata?: Record<string, unknown>;
+  }) {
+    if (!input.lineUserId) {
+      return;
+    }
+
+    const [existingJourney] = await this.db
+      .select()
+      .from(lineContactJourneys)
+      .where(eq(lineContactJourneys.lineUserId, input.lineUserId))
+      .limit(1);
+
+    const now = new Date();
+    const mergedMetadata = {
+      ...(existingJourney?.metadata ?? {}),
+      ...(input.metadata ?? {}),
+    };
+
+    if (existingJourney) {
+      await this.db
+        .update(lineContactJourneys)
+        .set({
+          patientId: input.patientId,
+          state: input.state,
+          currentStep: input.currentStep ?? existingJourney.currentStep ?? null,
+          metadata: mergedMetadata,
+          lastEventAt: now,
+          completedAt: input.completed ? now : existingJourney.completedAt ?? null,
+          updatedAt: now,
+        })
+        .where(eq(lineContactJourneys.id, existingJourney.id));
+
+      return;
+    }
+
+    await this.db.insert(lineContactJourneys).values({
+      patientId: input.patientId,
+      lineUserId: input.lineUserId,
+      state: input.state,
+      currentStep: input.currentStep ?? null,
+      metadata: mergedMetadata,
+      startedAt: now,
+      lastEventAt: now,
+      completedAt: input.completed ? now : null,
+      updatedAt: now,
+    });
   }
 
   private async generatePatientTokens(patient: any) {

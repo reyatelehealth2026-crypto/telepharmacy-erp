@@ -91,6 +91,24 @@ export function requiresPrescriptionForClassification(classification: string | n
   return PRESCRIPTION_REQUIRED_CLASSIFICATIONS.includes(classification as any);
 }
 
+/**
+ * Pick the best image URL for cards — same idea as catalog/search: prefer our CDN
+ * (MinIO / API) when multiple URLs exist; legacy Odoo hosts often 404.
+ */
+export function productCardImageUrl(product: Product): string | undefined {
+  const merged = [...(product.images ?? []), product.imageUrl].filter(
+    (u): u is string => typeof u === 'string' && u.length > 0,
+  );
+  const seen = new Set<string>();
+  const unique = merged.filter((u) => (seen.has(u) ? false : (seen.add(u), true)));
+  const preferCdn = (u: string) =>
+    /minio\.re-ya\.com/i.test(u) ||
+    /api\.re-ya\.com/i.test(u) ||
+    /^https?:\/\/localhost(?::9000)?\//i.test(u);
+  const cdn = unique.find(preferCdn);
+  return cdn ?? unique[0];
+}
+
 async function apiFetch<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     next: { revalidate: 60 },
@@ -114,11 +132,40 @@ export async function getProduct(identifier: string): Promise<Product> {
 }
 
 export async function getFeaturedProducts(limit = 8): Promise<Product[]> {
-  // Try featured first, fallback to all products if none marked as featured
-  const featured = await getProducts({ isFeatured: true, inStockOnly: false, limit });
+  const qs = (params: ProductQueryParams) => {
+    const p = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null) p.set(k, String(v));
+    });
+    return p.toString() ? `?${p.toString()}` : '';
+  };
+
+  const fetchFresh = async (params: ProductQueryParams): Promise<ProductListResponse> => {
+    const path = `/v1/products${qs(params)}`;
+    const res = await fetch(`${API_BASE}${path}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`API error ${res.status}`);
+    const json = await res.json();
+    return json.data as ProductListResponse;
+  };
+
+  // Match default /search listing: sortOrder asc (ยอดนิยม), not createdAt — and no stale Next cache
+  const featured = await fetchFresh({
+    isFeatured: true,
+    inStockOnly: false,
+    limit,
+    sortBy: 'sortOrder',
+    sortOrder: 'asc',
+  });
   if (featured.data.length > 0) return featured.data;
-  const all = await getProducts({ inStockOnly: false, limit, sortBy: 'createdAt', sortOrder: 'desc' });
-  return all.data;
+
+  return (
+    await fetchFresh({
+      inStockOnly: false,
+      limit,
+      sortBy: 'sortOrder',
+      sortOrder: 'asc',
+    })
+  ).data;
 }
 
 export async function searchProducts(query: string, limit = 20): Promise<Product[]> {

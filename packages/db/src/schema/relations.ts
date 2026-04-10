@@ -26,7 +26,14 @@ import {
   pointsTransactions,
   promotions,
 } from "./loyalty";
-import { chatSessions, chatMessages } from "./chat";
+import {
+  chatSessions,
+  chatMessages,
+  lineContactJourneys,
+  lineWebhookEvents,
+  patientTags,
+  patientTagAssignments,
+} from "./chat";
 import { notifications } from "./notifications";
 import { content } from "./content";
 import { complaints } from "./complaints";
@@ -59,6 +66,9 @@ export const patientsRelations = relations(patients, ({ one, many }) => ({
   orders: many(orders),
   loyaltyAccount: one(loyaltyAccounts),
   chatSessions: many(chatSessions),
+  lineContactJourneys: many(lineContactJourneys),
+  lineWebhookEvents: many(lineWebhookEvents),
+  tagAssignments: many(patientTagAssignments),
   notifications: many(notifications),
   complaints: many(complaints),
   medicationReminders: many(medicationReminders),
@@ -386,6 +396,7 @@ export const chatSessionsRelations = relations(
       references: [staff.id],
     }),
     messages: many(chatMessages),
+    webhookEvents: many(lineWebhookEvents),
     complaints: many(complaints),
   }),
 );
@@ -400,6 +411,52 @@ export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
     references: [staff.id],
   }),
 }));
+
+export const lineContactJourneysRelations = relations(
+  lineContactJourneys,
+  ({ one }) => ({
+    patient: one(patients, {
+      fields: [lineContactJourneys.patientId],
+      references: [patients.id],
+    }),
+  }),
+);
+
+export const lineWebhookEventsRelations = relations(
+  lineWebhookEvents,
+  ({ one }) => ({
+    patient: one(patients, {
+      fields: [lineWebhookEvents.patientId],
+      references: [patients.id],
+    }),
+    session: one(chatSessions, {
+      fields: [lineWebhookEvents.sessionId],
+      references: [chatSessions.id],
+    }),
+  }),
+);
+
+export const patientTagsRelations = relations(patientTags, ({ many }) => ({
+  assignments: many(patientTagAssignments),
+}));
+
+export const patientTagAssignmentsRelations = relations(
+  patientTagAssignments,
+  ({ one }) => ({
+    patient: one(patients, {
+      fields: [patientTagAssignments.patientId],
+      references: [patients.id],
+    }),
+    tag: one(patientTags, {
+      fields: [patientTagAssignments.tagId],
+      references: [patientTags.id],
+    }),
+    assignedBy: one(staff, {
+      fields: [patientTagAssignments.assignedByStaffId],
+      references: [staff.id],
+    }),
+  }),
+);
 
 export const notificationsRelations = relations(notifications, ({ one }) => ({
   patient: one(patients, {

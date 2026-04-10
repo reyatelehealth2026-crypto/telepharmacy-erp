@@ -12,7 +12,7 @@ import {
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { ComplianceService } from './compliance.service';
-import { AuditService } from './audit.service';
+import { AuditService } from '../audit/audit.service';
 import { LogAuditEventSchema, type LogAuditEventDto, ConsentRecordSchema, type ConsentRecordDto } from './dto/data-request.dto';
 import { CreateBreachReportSchema, type CreateBreachReportDto } from './dto/data-breach.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';

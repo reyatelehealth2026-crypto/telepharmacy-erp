@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProductCard } from '@/components/product/product-card';
-import { getFeaturedProducts } from '@/lib/products';
+import { getFeaturedProducts, productCardImageUrl } from '@/lib/products';
 import { getArticles, type Article } from '@/lib/content';
 
 const quickActions = [
@@ -196,9 +196,12 @@ export default async function HomePage() {
               <ProductCard
                 key={product.id}
                 id={product.id}
+                sku={product.sku}
+                slug={product.slug}
+                shortSlug={product.shortSlug}
                 name={product.nameTh}
                 brand={product.brand ?? undefined}
-                imageUrl={product.imageUrl ?? undefined}
+                imageUrl={productCardImageUrl(product)}
                 price={product.sellPrice ?? 0}
                 memberPrice={product.memberPrice ?? undefined}
                 comparePrice={product.comparePrice ?? undefined}

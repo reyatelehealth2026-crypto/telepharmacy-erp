@@ -1,15 +1,15 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * E2E / screen-recording style runs.
+ * E2E — วิดีโอคมชัด: viewport FHD + deviceScaleFactor 2 (ข้อความ/ UI คมขึ้นบนจอ HiDPI)
  *
- * - Video: `PLAYWRIGHT_VIDEO=on` (default) | `retain-on-failure` | `off`
- * - Target app: `PLAYWRIGHT_BASE_URL` (default admin dev http://127.0.0.1:3001)
- * - Slow motion (e.g. deep demo): `PLAYWRIGHT_SLOW_MS`, `STEP_DELAY_MS` (see `e2e/admin-deep-demo.spec.ts`)
+ * - `PLAYWRIGHT_VIDEO=on` | `off` | `retain-on-failure`
+ * - `PLAYWRIGHT_BASE_URL` (ดีฟอลต์ admin dev http://127.0.0.1:3001)
+ * - จังหวะช้า: `PLAYWRIGHT_SLOW_MS`, `STEP_DELAY_MS`, `MICRO_PAUSE_MS`, `PAGE_CHANGE_MS` (หน่วงก่อนเปลี่ยนหน้าใน catalog)
  *
- * Run admin locally first: `pnpm dev:admin`, then `pnpm e2e`
- * Install browsers once: `pnpm exec playwright install chromium`
+ * `pnpm exec playwright install chromium`
  */
+
 const videoMode = (): 'on' | 'off' | 'retain-on-failure' => {
   const v = process.env.PLAYWRIGHT_VIDEO;
   if (v === 'off' || v === '0') return 'off';
@@ -17,6 +17,19 @@ const videoMode = (): 'on' | 'off' | 'retain-on-failure' => {
   if (process.env.CI) return 'retain-on-failure';
   return 'on';
 };
+
+const HD = { width: 1920, height: 1080 } as const;
+
+function videoSetting():
+  | 'off'
+  | 'retain-on-failure'
+  | { mode: 'on'; size: typeof HD }
+  | { mode: 'retain-on-failure'; size: typeof HD } {
+  const m = videoMode();
+  if (m === 'off') return 'off';
+  if (m === 'retain-on-failure') return { mode: 'retain-on-failure', size: HD };
+  return { mode: 'on', size: HD };
+}
 
 export default defineConfig({
   testDir: './e2e',
@@ -31,15 +44,21 @@ export default defineConfig({
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3001',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
-    video: videoMode(),
-    navigationTimeout: 30_000,
-    actionTimeout: 15_000,
+    video: videoSetting(),
+    viewport: HD,
+    deviceScaleFactor: 2,
+    navigationTimeout: 45_000,
+    actionTimeout: 20_000,
   },
 
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: HD,
+        deviceScaleFactor: 2,
+      },
     },
   ],
 });

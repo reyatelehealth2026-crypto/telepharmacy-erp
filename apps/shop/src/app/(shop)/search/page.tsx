@@ -11,7 +11,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ProductCard } from '@/components/product/product-card';
-import { getProducts, DRUG_CLASSIFICATION_OPTIONS } from '@/lib/products';
+import { getProducts, DRUG_CLASSIFICATION_OPTIONS, productCardImageUrl } from '@/lib/products';
 import type { Product } from '@/lib/products';
 import { useSearchParams, useRouter } from 'next/navigation';
 
@@ -348,7 +348,7 @@ function SearchPageInner() {
                   shortSlug={product.shortSlug}
                   name={product.nameTh}
                   brand={product.brand ?? undefined}
-                  imageUrl={product.imageUrl ?? undefined}
+                  imageUrl={productCardImageUrl(product)}
                   price={product.sellPrice ?? 0}
                   memberPrice={product.memberPrice ?? undefined}
                   comparePrice={product.comparePrice ?? undefined}

@@ -562,8 +562,12 @@ export class ProductService {
 
   private formatProduct(row: any) {
     const qty = Number(row.stockQty ?? 0);
-    const firstImage =
-      Array.isArray(row.images) && row.images.length > 0 ? row.images[0] : null;
+    const urls = Array.isArray(row.images)
+      ? row.images.filter((u: unknown): u is string => typeof u === 'string' && u.length > 0)
+      : [];
+    const preferCdn = (u: string) =>
+      /minio\.re-ya\.com/i.test(u) || /api\.re-ya\.com/i.test(u);
+    const firstImage = urls.find(preferCdn) ?? urls[0] ?? null;
 
     return {
       ...row,

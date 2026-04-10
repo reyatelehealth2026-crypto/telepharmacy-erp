@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { formatPrice } from '@/lib/utils';
-import { getProduct } from '@/lib/products';
+import { getProduct, productCardImageUrl } from '@/lib/products';
 import { ProductAddToCart } from '@/components/product/product-add-to-cart';
 
 const classificationLabel: Record<string, string> = {
@@ -45,6 +45,7 @@ export default async function ProductDetailPage({
   }
 
   const classification = product.drugClassification ?? 'hhr';
+  const heroImage = productCardImageUrl(product);
 
   return (
     <div className="pb-24">
@@ -65,9 +66,9 @@ export default async function ProductDetailPage({
 
       {/* Image */}
       <div className="relative flex aspect-square items-center justify-center bg-muted">
-        {product.imageUrl ? (
+        {heroImage ? (
           <Image
-            src={product.imageUrl}
+            src={heroImage}
             alt={product.nameTh}
             fill
             className="object-contain"

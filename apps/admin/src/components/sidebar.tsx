@@ -27,6 +27,7 @@ import {
   Shield,
   Tag,
   FileText,
+  Webhook,
 } from 'lucide-react';
 
 const navigation: {
@@ -50,6 +51,12 @@ const navigation: {
   { name: 'Telemedicine', href: '/dashboard/telemedicine', icon: Video, roles: ['pharmacist', 'super_admin'] },
   { name: 'KYC Review', href: '/dashboard/kyc', icon: Shield, roles: ['pharmacist', 'super_admin'] },
   { name: 'กล่องข้อความ', href: '/dashboard/inbox', icon: Inbox, roles: ['pharmacist', 'super_admin', 'customer_service'], badgeKey: 'chat' },
+  {
+    name: 'LINE Webhook',
+    href: '/dashboard/line-webhooks',
+    icon: Webhook,
+    roles: ['pharmacist', 'super_admin', 'customer_service', 'pharmacist_tech'],
+  },
   { name: 'LINE Messaging', href: '/dashboard/messaging', icon: MessageSquare, roles: ['pharmacist', 'super_admin'] },
   { name: 'รายงาน', href: '/dashboard/reports', icon: BarChart3, roles: ['pharmacist', 'super_admin', 'accounting'] },
   { name: 'ตั้งค่า', href: '/dashboard/settings', icon: Settings, roles: ['super_admin'] },

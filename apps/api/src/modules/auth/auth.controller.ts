@@ -114,4 +114,13 @@ export class AuthController {
   confirmAccountLink(@Body() body: { token: string; lineUserId: string }) {
     return this.authService.confirmAccountLink(body.token, body.lineUserId);
   }
+
+  @Public()
+  @Post('line/link/claim')
+  @HttpCode(HttpStatus.OK)
+  claimLineAccount(
+    @Body() body: { patientNo: string; phone: string; dateOfBirth: string; lineUserId: string },
+  ) {
+    return this.authService.claimLineAccount(body);
+  }
 }

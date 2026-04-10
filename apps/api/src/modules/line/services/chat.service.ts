@@ -39,6 +39,7 @@ export class ChatService {
     await this.db.insert(chatMessages).values({
       sessionId: session.id,
       role: 'system',
+      messageKind: 'system_event',
       content: 'สวัสดีค่ะ ยินดีให้คำปรึกษาค่ะ มีอะไรให้ช่วยเหลือคะ?',
       messageType: 'text',
     });

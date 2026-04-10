@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Loader2, PackageX, LayoutGrid } from 'lucide-react';
 import { ProductCard } from '@/components/product/product-card';
-import { getProducts } from '@/lib/products';
+import { getProducts, productCardImageUrl } from '@/lib/products';
 import type { Product } from '@/lib/products';
 
 const categories = [
@@ -140,7 +140,7 @@ export default function ProductsPage() {
                   shortSlug={product.shortSlug}
                   name={product.nameTh}
                   brand={product.brand ?? undefined}
-                  imageUrl={product.imageUrl ?? undefined}
+                  imageUrl={productCardImageUrl(product)}
                   price={product.sellPrice ?? 0}
                   memberPrice={product.memberPrice ?? undefined}
                   comparePrice={product.comparePrice ?? undefined}

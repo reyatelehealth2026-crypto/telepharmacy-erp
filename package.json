@@ -28,8 +28,9 @@
     "e2e:ui": "playwright test --ui",
     "e2e:headed": "playwright test --headed",
     "e2e:install": "playwright install chromium",
-    "e2e:journey": "playwright test e2e/admin-journey.spec.ts",
-    "e2e:deep": "playwright test e2e/admin-deep-demo.spec.ts"
+    "e2e:catalog": "playwright test e2e/admin-catalog-01.spec.ts e2e/admin-catalog-02.spec.ts e2e/admin-catalog-03.spec.ts",
+    "e2e:line": "playwright test e2e/line-crm-flows.spec.ts",
+    "e2e:public": "playwright test e2e/admin-public.spec.ts"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

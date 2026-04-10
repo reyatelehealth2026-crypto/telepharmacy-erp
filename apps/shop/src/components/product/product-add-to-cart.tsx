@@ -3,7 +3,7 @@
 import { ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCartStore } from '@/store/cart';
-import type { Product } from '@/lib/products';
+import { productCardImageUrl, type Product } from '@/lib/products';
 
 interface Props {
   product: Product;
@@ -18,7 +18,7 @@ export function ProductAddToCart({ product }: Props) {
       productId: product.id,
       name: product.nameTh,
       brand: product.brand ?? undefined,
-      imageUrl: product.imageUrl ?? undefined,
+      imageUrl: productCardImageUrl(product),
       price: product.sellPrice ?? 0,
       memberPrice: product.memberPrice ?? undefined,
       unit: product.unit ?? 'ชิ้น',

@@ -19,6 +19,7 @@ import {
   Calendar,
   MapPin,
   BadgeCheck,
+  Link2,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -141,6 +142,7 @@ export default function ProfilePage() {
       badge: loyaltyPoints > 0 ? `${(loyaltyPoints ?? 0).toLocaleString()} แต้ม` : undefined,
       color: 'text-yellow-500',
     },
+    { href: '/line/link', icon: Link2, label: 'เชื่อมบัญชี LINE เดิม', color: 'text-emerald-500' },
     { href: '/profile/kyc', icon: BadgeCheck, label: 'ยืนยันตัวตน (KYC)', color: 'text-teal-500' },
     { href: '/profile/notifications', icon: Bell, label: 'ตั้งค่าการแจ้งเตือน', color: 'text-indigo-500' },
     { href: '/notifications', icon: Bell, label: 'ประวัติการแจ้งเตือน', color: 'text-indigo-500' },
