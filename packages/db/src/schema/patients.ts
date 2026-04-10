@@ -152,6 +152,8 @@ export const patientAddresses = pgTable("patient_addresses", {
   district: varchar("district", { length: 100 }),
   province: varchar("province", { length: 100 }).notNull(),
   postalCode: varchar("postal_code", { length: 10 }),
+  latitude: decimal("latitude", { precision: 10, scale: 7 }),
+  longitude: decimal("longitude", { precision: 10, scale: 7 }),
   notes: text("notes"),
   isDefault: boolean("is_default").default(false).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })

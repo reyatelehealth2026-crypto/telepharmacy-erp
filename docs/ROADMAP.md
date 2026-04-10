@@ -291,7 +291,7 @@ New Routes Summary
 - [ ] Image optimization (prescription photos, product images via MinIO)
 
 ### Production Deployment
-- [ ] Production docker-compose.prod.yml finalize
+- [ ] Production docker-compose.prod.yml finalize (รูปแบบ deploy แบบ A/B และ runbook: [`DEPLOYMENT_GUIDE.md`](DEPLOYMENT_GUIDE.md) ขั้นที่ 9)
 - [ ] Traefik TLS (Let's Encrypt) สำหรับ `re-ya.com`
 - [ ] Grafana dashboards: API latency, prescription queue SLA, error rates
 - [ ] Prometheus alerts (uptime, error rate, queue depth)

@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
   Body,
   HttpCode,
   HttpStatus,
@@ -88,6 +89,15 @@ export class AuthController {
     return this.authService.getProfile(user);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Patch('me')
+  updateProfile(
+    @CurrentUser() user: RequestUser,
+    @Body() body: { licenseNo?: string; firstName?: string; lastName?: string },
+  ) {
+    return this.authService.updateProfile(user.id, body);
+  }
+
   // ─── Account Linking ──────────────────────────────────────────
 
   @UseGuards(JwtAuthGuard, PatientOnlyGuard)
@@ -103,5 +113,14 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   confirmAccountLink(@Body() body: { token: string; lineUserId: string }) {
     return this.authService.confirmAccountLink(body.token, body.lineUserId);
+  }
+
+  @Public()
+  @Post('line/link/claim')
+  @HttpCode(HttpStatus.OK)
+  claimLineAccount(
+    @Body() body: { patientNo: string; phone: string; dateOfBirth: string; lineUserId: string },
+  ) {
+    return this.authService.claimLineAccount(body);
   }
 }

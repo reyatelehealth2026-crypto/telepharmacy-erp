@@ -4,7 +4,6 @@ import { StatCard } from '@/components/stat-card';
 import { PageHeader } from '@/components/page-header';
 import { getAdminProducts } from '@/lib/products';
 import { ProductsTable } from '@/components/products/products-table';
-import { OdooSyncButton } from '@/components/products/odoo-sync-button';
 
 const drugClassificationLabel: Record<string, string> = {
   hhr: 'ยาสามัญ (HHR)',
@@ -39,7 +38,9 @@ export default async function ProductsPage({
     <div className="space-y-6">
       <PageHeader title="จัดการสินค้า" description="สินค้าและยาในระบบ">
         <div className="flex gap-2">
-          <OdooSyncButton />
+          <Link href="/dashboard/inventory" className="inline-flex h-9 items-center rounded-lg border px-4 text-sm font-medium transition-colors hover:bg-muted">
+            คลังสินค้า
+          </Link>
           <Link href="/dashboard/products/new" className="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
             <PackagePlus className="mr-2 h-4 w-4" />
             เพิ่มสินค้า

@@ -5,3 +5,5 @@ export { CreateChronicDiseaseDto } from './create-chronic-disease.dto';
 export { UpdateChronicDiseaseDto } from './update-chronic-disease.dto';
 export { CreateMedicationDto } from './create-medication.dto';
 export { UpdateMedicationDto } from './update-medication.dto';
+export { CreateAddressDto } from './create-address.dto';
+export { UpdateAddressDto } from './update-address.dto';

@@ -11,6 +11,16 @@ const nextConfig: NextConfig = {
         pathname: '/uploads/product_photo/**',
       },
       {
+        protocol: 'https',
+        hostname: 'minio.re-ya.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'api.re-ya.com',
+        pathname: '/minio/**',
+      },
+      {
         protocol: 'http',
         hostname: 'localhost',
         port: '9000',

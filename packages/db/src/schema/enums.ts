@@ -234,6 +234,7 @@ export const stockMovementTypeEnum = pgEnum("stock_movement_type", [
   "write_off",
   "transfer_in",
   "transfer_out",
+  "odoo_sync",
 ]);
 
 export const membershipTierEnum = pgEnum("membership_tier", [
@@ -308,11 +309,61 @@ export const chatSessionTypeEnum = pgEnum("chat_session_type", [
   "ai_assisted",
 ]);
 
+export const chatEntryPointEnum = pgEnum("chat_entry_point", [
+  "follow",
+  "message",
+  "postback",
+  "rich_menu",
+  "liff",
+]);
+
+export const chatEntryIntentEnum = pgEnum("chat_entry_intent", [
+  "consult",
+  "register",
+  "link_account",
+  "rx_upload",
+  "order_tracking",
+  "product_search",
+  "other",
+]);
+
+export const chatQueueStatusEnum = pgEnum("chat_queue_status", [
+  "self_service",
+  "needs_human",
+  "assigned",
+  "resolved",
+]);
+
+export const chatPriorityEnum = pgEnum("chat_priority", [
+  "normal",
+  "urgent",
+]);
+
 export const chatMessageRoleEnum = pgEnum("chat_message_role", [
   "user",
   "bot",
   "pharmacist",
   "system",
+]);
+
+export const chatMessageKindEnum = pgEnum("chat_message_kind", [
+  "message",
+  "internal_note",
+  "system_event",
+]);
+
+export const lineContactStateEnum = pgEnum("line_contact_state", [
+  "new_unregistered",
+  "stub_unfinished",
+  "link_pending",
+  "linked_returning",
+]);
+
+export const webhookEventStatusEnum = pgEnum("webhook_event_status", [
+  "received",
+  "processing",
+  "processed",
+  "failed",
 ]);
 
 export const complaintStatusEnum = pgEnum("complaint_status", [

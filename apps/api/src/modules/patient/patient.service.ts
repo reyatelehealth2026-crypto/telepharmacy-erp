@@ -21,6 +21,8 @@ import type { CreateChronicDiseaseDto } from './dto/create-chronic-disease.dto';
 import type { UpdateChronicDiseaseDto } from './dto/update-chronic-disease.dto';
 import type { CreateMedicationDto } from './dto/create-medication.dto';
 import type { UpdateMedicationDto } from './dto/update-medication.dto';
+import type { CreateAddressDto } from './dto/create-address.dto';
+import type { UpdateAddressDto } from './dto/update-address.dto';
 
 @Injectable()
 export class PatientService {
@@ -148,7 +150,7 @@ export class PatientService {
         drugName: dto.drugName,
         genericNames: dto.genericNames ?? [],
         allergyGroup: dto.allergyGroup,
-        reactionType: dto.reactionType,
+        reactionType: dto.reactionType ?? 'allergic',
         severity: dto.severity,
         symptoms: dto.symptoms,
         source: dto.source ?? 'patient_reported',
@@ -496,11 +498,7 @@ export class PatientService {
       .orderBy(desc(patientAddresses.isDefault), desc(patientAddresses.createdAt));
   }
 
-  async createAddress(patientId: string, dto: {
-    label?: string; recipientName: string; phone: string; address: string;
-    subDistrict?: string; district?: string; province: string; postalCode?: string;
-    notes?: string; isDefault?: boolean;
-  }) {
+  async createAddress(patientId: string, dto: CreateAddressDto) {
     await this.ensurePatientExists(patientId);
 
     // If setting as default, unset others
@@ -530,11 +528,7 @@ export class PatientService {
     return addr;
   }
 
-  async updateAddress(patientId: string, addressId: string, dto: Partial<{
-    label: string; recipientName: string; phone: string; address: string;
-    subDistrict: string; district: string; province: string; postalCode: string;
-    notes: string; isDefault: boolean;
-  }>) {
+  async updateAddress(patientId: string, addressId: string, dto: UpdateAddressDto) {
     if (dto.isDefault) {
       await this.db
         .update(patientAddresses)

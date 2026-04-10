@@ -46,9 +46,9 @@ export default function PendingSlipsPage() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-sm font-medium">{order.orderNo}</span>
-                    <span className="text-sm font-medium">฿{parseFloat(order.totalAmount).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+                    <span className="text-sm font-medium">฿{parseFloat(order.totalAmount ?? '0').toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground">{new Date(order.createdAt).toLocaleString('th-TH')}</p>
+                  <p className="text-xs text-muted-foreground">{order.createdAt ? new Date(order.createdAt).toLocaleString('th-TH') : '-'}</p>
                 </div>
                 {order.slipUrl && (
                   <a href={order.slipUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs hover:bg-muted">

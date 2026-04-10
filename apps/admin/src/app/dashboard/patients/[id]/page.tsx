@@ -139,7 +139,7 @@ export default function PatientDetailPage() {
   if (!patient) {
     return (
       <div className="flex h-96 flex-col items-center justify-center gap-2">
-        <p className="text-muted-foreground">ไม่พบข้อมูลผู้ป่วย</p>
+        <p className="text-muted-foreground">ไม่พบข้อมูลลูกค้า</p>
         <Link href="/dashboard/patients" className="text-sm text-primary underline">กลับ</Link>
       </div>
     );

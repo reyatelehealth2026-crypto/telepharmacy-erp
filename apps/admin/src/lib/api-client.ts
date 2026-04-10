@@ -1,6 +1,6 @@
 import { isTokenExpired } from './auth-types';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.re-ya.com';
 
 /** Token storage keys. */
 const ACCESS_TOKEN_KEY = 'access_token';
@@ -110,6 +110,12 @@ export async function apiFetch<T = unknown>(
   options: RequestInit = {},
 ): Promise<{ data: T; meta?: Record<string, unknown> }> {
   const token = await getValidToken();
+
+  // No token at all — redirect to login (cookie may still be valid but localStorage cleared)
+  if (!token && typeof window !== 'undefined') {
+    window.location.href = '/login';
+    throw new ApiRequestError(401, { code: 'UNAUTHORIZED', message: 'Not authenticated' });
+  }
 
   const headers = new Headers(options.headers);
   if (token) {

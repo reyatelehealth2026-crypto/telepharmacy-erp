@@ -6,7 +6,10 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "turbo run build",
+    "build": "turbo run build && pnpm postbuild",
+    "postbuild": "pnpm postbuild:admin && pnpm postbuild:shop",
+    "postbuild:admin": "cp -r apps/admin/.next/static apps/admin/.next/standalone/apps/admin/.next/ && cp -r apps/admin/public apps/admin/.next/standalone/apps/admin/ || true",
+    "postbuild:shop": "cp -r apps/shop/.next/static apps/shop/.next/standalone/apps/shop/.next/ && cp -r apps/shop/public apps/shop/.next/standalone/apps/shop/ || true",
     "dev": "turbo run dev",
     "dev:api": "turbo run dev --filter=@telepharmacy/api",
     "dev:admin": "turbo run dev --filter=@telepharmacy/admin",
@@ -20,7 +23,14 @@
     "db:seed": "pnpm --filter @telepharmacy/db db:seed",
     "clean": "turbo run clean",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\""
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
+    "e2e:headed": "playwright test --headed",
+    "e2e:install": "playwright install chromium",
+    "e2e:catalog": "playwright test e2e/admin-catalog-01.spec.ts e2e/admin-catalog-02.spec.ts e2e/admin-catalog-03.spec.ts",
+    "e2e:line": "playwright test e2e/line-crm-flows.spec.ts",
+    "e2e:public": "playwright test e2e/admin-public.spec.ts"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -31,6 +41,8 @@
     ]
   },
   "devDependencies": {
+    "@types/node": "^22",
+    "@playwright/test": "^1.51.0",
     "turbo": "^2",
     "prettier": "^3",
     "typescript": "^5"

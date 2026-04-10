@@ -130,7 +130,7 @@ export default function PharmacistQueuePage() {
     <div className="space-y-6">
       <PageHeader
         title="คิวใบสั่งยา"
-        description="ตรวจสอบและ verify ใบสั่งยาจากผู้ป่วย"
+        description="ตรวจสอบและ verify ใบสั่งยาจากลูกค้า"
       >
         <button
           onClick={() => mutate()}

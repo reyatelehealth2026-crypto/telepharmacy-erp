@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.re-ya.com';
 
 export interface AdminProduct {
   id: string;
@@ -75,6 +75,10 @@ export async function getAdminProducts(
     limit?: number;
     inStockOnly?: boolean;
     status?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    categoryId?: string;
+    drugClassification?: string;
   } = {},
 ): Promise<ProductListResponse> {
   const qs = new URLSearchParams();

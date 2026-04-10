@@ -34,7 +34,10 @@ export default function OrdersPage() {
     }
 
     getMyOrders(accessToken)
-      .then((res) => setOrders(res.data))
+      .then((res) => {
+        const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+        setOrders(list);
+      })
       .catch((err) => toast.error(err.message || 'โหลดคำสั่งซื้อไม่สำเร็จ'))
       .finally(() => setLoading(false));
   }, [accessToken, router]);

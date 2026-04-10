@@ -1,7 +1,7 @@
 import { Injectable, Logger, Inject, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { eq, ilike, and, sql, asc, desc, or } from 'drizzle-orm';
-import { products } from '@telepharmacy/db';
+import { products, stockMovements } from '@telepharmacy/db';
 import { DRIZZLE } from '../../database/database.constants';
 import { OdooService } from '../odoo/odoo.service';
 import type { ProductQueryDto } from './dto/product-query.dto';
@@ -122,13 +122,8 @@ export class ProductService {
 
   // ── Single product ─────────────────────────────────────────────────────────
 
-  async findOne(id: string, withRealTimeStock = false) {
-    const [row] = await this.db
-      .select()
-      .from(products)
-      .where(eq(products.id, id))
-      .limit(1);
-
+  async findOne(identifier: string, withRealTimeStock = false) {
+    const row = await this.findByIdentifier(identifier);
     if (!row) throw new NotFoundException('ไม่พบสินค้า');
 
     const formatted = this.formatProduct(row);
@@ -145,34 +140,129 @@ export class ProductService {
     return formatted;
   }
 
+  private async findByIdentifier(identifier: string) {
+    const conditions: any[] = [
+      eq(products.slug, identifier),
+      eq(products.sku, identifier),
+    ];
+
+    const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
+    if (uuidLike) {
+      conditions.unshift(eq(products.id, identifier));
+    }
+
+    const shortSkuMatch = /^sku(\d+)$/i.exec(identifier)?.[1];
+    if (shortSkuMatch) {
+      conditions.push(
+        ilike(products.sku, `${shortSkuMatch}%`),
+        ilike(products.odooCode, `${shortSkuMatch}%`),
+      );
+    }
+
+    const [row] = await this.db
+      .select()
+      .from(products)
+      .where(or(...conditions))
+      .limit(1);
+
+    return row ?? null;
+  }
+
   // ── Real-time stock ────────────────────────────────────────────────────────
 
-  async getStock(id: string) {
+  async getStock(identifier: string) {
     const [row] = await this.db
       .select({ id: products.id, odooCode: products.odooCode, stockQty: products.stockQty })
       .from(products)
-      .where(eq(products.id, id))
+      .where(
+        or(
+          eq(products.id, identifier),
+          eq(products.slug, identifier),
+          eq(products.sku, identifier),
+        ),
+      )
       .limit(1);
 
     if (!row) throw new NotFoundException('ไม่พบสินค้า');
 
     if (!row.odooCode) {
-      return { productId: id, qty: Number(row.stockQty ?? 0), source: 'db' as const };
+      return { productId: row.id, qty: Number(row.stockQty ?? 0), source: 'db' as const };
     }
 
     const liveQty = await this.getLiveStock(row.odooCode);
     if (liveQty !== null) {
       this.updateStockInDb(row.id, liveQty).catch(() => {});
-      return { productId: id, qty: liveQty, source: 'odoo' as const };
+      return { productId: row.id, qty: liveQty, source: 'odoo' as const };
     }
 
-    return { productId: id, qty: Number(row.stockQty ?? 0), source: 'db_fallback' as const };
+    return { productId: row.id, qty: Number(row.stockQty ?? 0), source: 'db_fallback' as const };
   }
 
   // ── Odoo connection test ───────────────────────────────────────────────────
 
   async checkOdooConnection() {
     return this.odooService.testConnection();
+  }
+
+  // ── Batch sync by numeric range (avoids HTTP timeout on large sets) ─────────
+
+  async syncBatch(
+    fromCode: number,
+    toCode: number,
+    onProgress?: (event: { done: number; total: number; current: string; status: 'ok' | 'skip' | 'error'; synced: number; errors: number }) => void,
+  ): Promise<{ synced: number; errors: number; skipped: number; details: string[] }> {
+    const total = toCode - fromCode + 1;
+    let synced = 0;
+    let errors = 0;
+    let skipped = 0;
+    const details: string[] = [];
+
+    for (let i = fromCode; i <= toCode; i++) {
+      const code = String(i).padStart(4, '0');
+      let status: 'ok' | 'skip' | 'error' = 'skip';
+      try {
+        const product = await this.odooService.getProduct(code);
+        if (!product) {
+          skipped++;
+          details.push(`SKIP ${code}: not found in Odoo`);
+        } else {
+          await this.upsertFromOdoo(product);
+          synced++;
+          status = 'ok';
+          details.push(`OK ${code}: ${product.nameTh} (฿${product.onlinePrice ?? product.listPrice})`);
+        }
+      } catch (err) {
+        this.logger.error(`Failed to sync product ${code}`, err);
+        errors++;
+        status = 'error';
+        details.push(`ERR ${code}: ${String(err)}`);
+      }
+      onProgress?.({ done: i - fromCode + 1, total, current: code, status, synced, errors });
+    }
+
+    return { synced, errors, skipped, details };
+  }
+
+  // ── Bulk close all active products ─────────────────────────────────────────
+
+  async bulkCloseAll(): Promise<{ updated: number }> {
+    const result = await this.db
+      .update(products)
+      .set({ status: 'inactive', updatedAt: new Date() })
+      .where(sql`${products.status} = 'active'`)
+      .returning({ id: products.id });
+    return { updated: result.length };
+  }
+
+  // ── Bulk close Rx-required products ────────────────────────────────────────
+
+  async bulkCloseRx(): Promise<{ updated: number }> {
+    const result = await this.db
+      .update(products)
+      .set({ status: 'inactive', updatedAt: new Date() })
+      .where(and(sql`${products.status} = 'active'`, eq(products.requiresPrescription, true)))
+      .returning({ id: products.id });
+    return { updated: result.length };
   }
 
   // ── Discover & bulk sync all products from image server ────────────────────
@@ -327,7 +417,7 @@ export class ProductService {
       .limit(1);
     if (!existing) throw new NotFoundException('ไม่พบสินค้า');
 
-    const updates = { updatedBy: userId, updatedAt: new Date() };
+    const updates: Record<string, any> = { updatedBy: userId, updatedAt: new Date() };
     const stringFields = ['sellPrice', 'comparePrice', 'memberPrice', 'stockQty'];
     for (const [key, val] of Object.entries(dto)) {
       if (val === undefined) continue;
@@ -370,10 +460,12 @@ export class ProductService {
     const slug = this.toSlug(op.nameTh, op.odooCode);
     const sellPrice = String(op.onlinePrice ?? op.listPrice);
     const hasDiscount = op.onlinePrice !== null && op.onlinePrice < op.listPrice;
-    // Build images array: use imageUrl if available
     const images = op.imageUrl ? [op.imageUrl] : [];
+    // Manufacturer from first vendor entry
+    const manufacturer = op.vendors?.[0]?.vendor_name ?? null;
+    const category = op.category ?? null;
 
-    await this.db
+    const result = await this.db
       .insert(products)
       .values({
         sku: op.sku,
@@ -385,7 +477,7 @@ export class ProductService {
         howToUse: op.howToUse ?? null,
         warnings: op.caution ?? null,
         slug,
-        unit: op.unit ?? 'ชิ้น',
+        unit: (op.unit ?? 'ชิ้น').substring(0, 20),
         sellPrice,
         comparePrice: hasDiscount ? String(op.listPrice) : null,
         stockQty: String(op.stockQty),
@@ -394,6 +486,8 @@ export class ProductService {
         status: op.isActive ? 'active' : 'inactive',
         barcode: op.barcode ?? null,
         images,
+        brand: manufacturer,
+        ...(category ? { shortDescription: (op.description ? op.description + ' | ' : '') + 'หมวด: ' + category } : {}),
       })
       .onConflictDoUpdate({
         target: products.sku,
@@ -412,12 +506,28 @@ export class ProductService {
           odooLastSyncAt: now,
           status: op.isActive ? 'active' : 'inactive',
           barcode: op.barcode ?? null,
-          unit: op.unit ?? 'ชิ้น',
-          // Only update images if we have a new URL (don't overwrite manually uploaded images)
+          unit: (op.unit ?? 'ชิ้น').substring(0, 20),
+          brand: manufacturer,
           ...(op.imageUrl ? { images } : {}),
           updatedAt: now,
         },
+      })
+      .returning({ id: products.id, sku: products.sku });
+
+    // Record Odoo sync movement (lotId nullable — no lot needed for direct sync)
+    if (result.length > 0 && op.stockQty > 0) {
+      const productId = result[0]!.id;
+      await this.db.insert(stockMovements).values({
+        productId,
+        movementType: 'odoo_sync' as any,
+        quantity: String(op.stockQty),
+        reason: `Odoo sync: ${op.nameTh} (${op.odooCode})`,
+        referenceType: 'odoo',
+      }).catch(() => {
+        // Non-critical: log but don't fail sync
+        this.logger.warn(`Could not record sync movement for ${op.odooCode}`);
       });
+    }
   }
 
   private async getLiveStock(odooCode: string): Promise<number | null> {
@@ -445,14 +555,19 @@ export class ProductService {
       stockQty: products.stockQty,
       sortOrder: products.sortOrder,
       createdAt: products.createdAt,
+      sku: products.sku,
     };
     return map[sortBy] ?? products.sortOrder;
   }
 
   private formatProduct(row: any) {
     const qty = Number(row.stockQty ?? 0);
-    const firstImage =
-      Array.isArray(row.images) && row.images.length > 0 ? row.images[0] : null;
+    const urls = Array.isArray(row.images)
+      ? row.images.filter((u: unknown): u is string => typeof u === 'string' && u.length > 0)
+      : [];
+    const preferCdn = (u: string) =>
+      /minio\.re-ya\.com/i.test(u) || /api\.re-ya\.com/i.test(u);
+    const firstImage = urls.find(preferCdn) ?? urls[0] ?? null;
 
     return {
       ...row,
@@ -463,7 +578,18 @@ export class ProductService {
       inStock: qty > 0,
       imageUrl: firstImage,
       isLowStock: qty > 0 && qty <= Number(row.reorderPoint ?? 10),
+      shortSlug: this.toShortSlug(row.sku ?? row.odooCode ?? row.slug ?? row.id),
     };
+  }
+
+  private toShortSlug(code: string): string {
+    const digits = code.match(/\d+/)?.[0];
+    if (digits) return `sku${digits}`;
+    return code
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 80) || code;
   }
 
   private toSlug(name: string, code: string): string {

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Loader2, PackageX, LayoutGrid } from 'lucide-react';
 import { ProductCard } from '@/components/product/product-card';
-import { getProducts } from '@/lib/products';
+import { getProducts, productCardImageUrl } from '@/lib/products';
 import type { Product } from '@/lib/products';
 
 const categories = [
@@ -74,7 +74,7 @@ export default function ProductsPage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="sticky top-14 z-30 bg-background px-4 pb-3 pt-3">
+      <div className="sticky top-[104px] z-30 bg-background px-4 pb-3 pt-3">
         <div className="flex items-center gap-2">
           <LayoutGrid className="h-5 w-5 text-primary" />
           <h1 className="text-lg font-bold">สินค้าทั้งหมด</h1>
@@ -135,9 +135,12 @@ export default function ProductsPage() {
                 <ProductCard
                   key={product.id}
                   id={product.id}
+                  sku={product.sku}
+                  slug={product.slug}
+                  shortSlug={product.shortSlug}
                   name={product.nameTh}
                   brand={product.brand ?? undefined}
-                  imageUrl={product.imageUrl ?? undefined}
+                  imageUrl={productCardImageUrl(product)}
                   price={product.sellPrice ?? 0}
                   memberPrice={product.memberPrice ?? undefined}
                   comparePrice={product.comparePrice ?? undefined}

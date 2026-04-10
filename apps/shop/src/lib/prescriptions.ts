@@ -60,12 +60,12 @@ export async function uploadPrescription(
   files: File[],
   notes?: string
 ): Promise<Prescription> {
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.re-ya.com';
   const formData = new FormData();
   files.forEach((file) => formData.append('images', file));
   if (notes) formData.append('notes', notes);
 
-  const res = await fetch(`${API_BASE}/v1/prescriptions`, {
+  const res = await fetch(`${API_BASE}/v1/prescriptions/upload`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: formData,
@@ -85,10 +85,15 @@ export async function getMyPrescriptions(
   page = 1,
   limit = 20
 ): Promise<PrescriptionListResponse> {
-  return api.get<PrescriptionListResponse>(
+  const res = await api.get<any>(
     `/v1/patients/me/prescriptions?page=${page}&limit=${limit}`,
     token
   );
+  // Unwrap backend envelope: { success, data: { data: [], meta: {} } } or { success, data: [] }
+  const payload = res?.data ?? res;
+  const items: Prescription[] = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : []);
+  const meta = payload?.meta ?? { page, limit, total: items.length, totalPages: 1 };
+  return { data: items, meta };
 }
 
 export async function getPrescription(token: string, id: string): Promise<Prescription> {

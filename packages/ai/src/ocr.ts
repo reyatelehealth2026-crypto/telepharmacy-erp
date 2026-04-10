@@ -1,14 +1,17 @@
 import { generateText } from 'ai';
-import { google } from '@ai-sdk/google';
 import { AI_CONFIG, OCR_PRESCRIPTION_PROMPT, OCR_SLIP_PROMPT } from './config';
+import { googleVisionModel } from './google-model';
 import type { PrescriptionOcrResult, SlipOcrResult } from './types';
 
 export async function extractPrescription(
   imageBase64: string,
-  mimeType: string = 'image/jpeg'
+  mimeType: string = 'image/jpeg',
+  options?: { geminiApiKey?: string }
 ): Promise<PrescriptionOcrResult> {
+  const transcript = await transcribeImage(imageBase64, mimeType, options);
+
   const { text } = await generateText({
-    model: google(AI_CONFIG.visionModel),
+    model: googleVisionModel(options?.geminiApiKey),
     messages: [
       {
         role: 'user',
@@ -20,40 +23,34 @@ export async function extractPrescription(
           },
           {
             type: 'text',
-            text: OCR_PRESCRIPTION_PROMPT,
+            text: `${OCR_PRESCRIPTION_PROMPT}
+
+เบาะแสจาก OCR รอบแรก (อาจมีผิดพลาด แต่ช่วยอ่านบริบท):
+${transcript || '(ไม่มีข้อความถอดได้)'}
+
+กติกาเพิ่ม:
+- ถ้ามีข้อมูลบางส่วน ให้ใช้ค่าที่ใกล้เคียงที่สุดแทนการใส่ null
+- ถ้าอ่านข้อความได้แม้ไม่ครบ ให้เก็บค่านั้นไว้
+- อย่าปล่อยทุกฟิลด์ว่าง ถ้ามีตัวอักษรใด ๆ ที่อ่านได้
+- ตอบเป็น JSON เท่านั้น`,
           },
         ],
       },
     ],
-    temperature: 0.1,
+    temperature: 0,
     maxTokens: AI_CONFIG.maxTokens,
   });
 
-  try {
-    const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    const parsed = JSON.parse(cleaned);
-    return {
-      ...parsed,
-      confidence: parsed.confidence ?? estimateConfidence(parsed),
-      rawText: text,
-    };
-  } catch {
-    return {
-      prescriber: { name: '' },
-      patient: { name: '' },
-      items: [],
-      confidence: 0,
-      rawText: text,
-    };
-  }
+  return parsePrescriptionResult(text);
 }
 
 export async function extractSlip(
   imageBase64: string,
-  mimeType: string = 'image/jpeg'
+  mimeType: string = 'image/jpeg',
+  options?: { geminiApiKey?: string }
 ): Promise<SlipOcrResult> {
   const { text } = await generateText({
-    model: google(AI_CONFIG.visionModel),
+    model: googleVisionModel(options?.geminiApiKey),
     messages: [
       {
         role: 'user',
@@ -70,12 +67,12 @@ export async function extractSlip(
         ],
       },
     ],
-    temperature: 0.1,
+    temperature: 0,
     maxTokens: 1024,
   });
 
   try {
-    const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const cleaned = normalizeJsonText(text);
     const parsed = JSON.parse(cleaned);
     return {
       ...parsed,
@@ -93,31 +90,81 @@ export async function extractSlip(
 }
 
 export async function extractMultiplePrescriptionImages(
-  images: Array<{ base64: string; mimeType?: string }>
+  images: Array<{ base64: string; mimeType?: string }>,
+  options?: { geminiApiKey?: string }
 ): Promise<PrescriptionOcrResult> {
-  const content = images.flatMap((img) => [
-    {
-      type: 'image' as const,
-      image: img.base64,
-      mimeType: img.mimeType || 'image/jpeg',
-    },
-  ]);
+  const transcriptBlocks = await Promise.all(
+    images.map((img, index) => transcribeImage(img.base64, img.mimeType || 'image/jpeg', options, index + 1))
+  );
 
-  content.push({
-    type: 'text' as any,
-    image: OCR_PRESCRIPTION_PROMPT + '\n\nมีหลายรูป ให้รวมข้อมูลจากทุกรูปเป็นผลลัพธ์เดียว',
-    mimeType: '',
-  });
+  const content = [
+    ...images.flatMap((img) => [
+      {
+        type: 'image' as const,
+        image: img.base64,
+        mimeType: img.mimeType || 'image/jpeg',
+      },
+    ]),
+    {
+      type: 'text' as const,
+      text: `${OCR_PRESCRIPTION_PROMPT}
+
+OCR รอบแรกจากรูปทั้งหมด:
+${transcriptBlocks.map((t, i) => `รูปที่ ${i + 1}:\n${t || '(ไม่มีข้อความ)'}`).join('\n\n')}
+
+กติกาเพิ่ม:
+- รวมข้อมูลจากทุกภาพเป็นผลลัพธ์เดียว
+- ถ้ามีข้อมูลบางส่วน ให้ใช้ค่าที่ใกล้เคียงที่สุดแทนการใส่ null
+- ถ้าพบรายการยาหลายรายการ ให้รวมให้ครบ`,
+    },
+  ];
 
   const { text } = await generateText({
-    model: google(AI_CONFIG.visionModel),
+    model: googleVisionModel(options?.geminiApiKey),
     messages: [{ role: 'user', content: content as any }],
-    temperature: 0.1,
+    temperature: 0,
     maxTokens: AI_CONFIG.maxTokens,
   });
 
+  return parsePrescriptionResult(text);
+}
+
+async function transcribeImage(
+  imageBase64: string,
+  mimeType: string,
+  options?: { geminiApiKey?: string },
+  imageIndex?: number,
+): Promise<string> {
+  const { text } = await generateText({
+    model: googleVisionModel(options?.geminiApiKey),
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            image: imageBase64,
+            mimeType,
+          },
+          {
+            type: 'text',
+            text: imageIndex
+              ? `ถอดข้อความทั้งหมดจากภาพใบสั่งยา (รูปที่ ${imageIndex}) ให้ละเอียดที่สุด ใช้ภาษาต้นฉบับตามที่เห็น บรรทัดไหนอ่านไม่ออกให้เว้นไว้ ไม่ต้องสรุป ไม่ต้อง JSON`
+              : 'ถอดข้อความทั้งหมดจากภาพใบสั่งยาให้ละเอียดที่สุด ใช้ภาษาต้นฉบับตามที่เห็น บรรทัดไหนอ่านไม่ออกให้เว้นไว้ ไม่ต้องสรุป ไม่ต้อง JSON',
+          },
+        ],
+      },
+    ],
+    temperature: 0,
+    maxTokens: 2048,
+  });
+
+  return text.trim();
+}
+
+function parsePrescriptionResult(text: string): PrescriptionOcrResult {
   try {
-    const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const cleaned = normalizeJsonText(text);
     const parsed = JSON.parse(cleaned);
     return {
       ...parsed,
@@ -135,12 +182,24 @@ export async function extractMultiplePrescriptionImages(
   }
 }
 
+function normalizeJsonText(text: string): string {
+  return text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+}
+
 function estimateConfidence(result: Partial<PrescriptionOcrResult>): number {
   let score = 0;
   let total = 0;
 
-  if (result.prescriber?.name) { score += 1; } total += 1;
-  if (result.patient?.name) { score += 1; } total += 1;
+  if (result.prescriber?.name) {
+    score += 1;
+  }
+  total += 1;
+
+  if (result.patient?.name) {
+    score += 1;
+  }
+  total += 1;
+
   if (result.items && result.items.length > 0) {
     score += 2;
     for (const item of result.items) {

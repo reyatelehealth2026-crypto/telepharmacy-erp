@@ -20,6 +20,10 @@ Turborepo + pnpm workspaces monorepo:
 - `packages/ai` — Gemini AI services: OCR (prescriptions), chatbot, drug checker
 - `infra/` — Prometheus + Grafana configs
 
+## Remote production operations
+
+เมื่อ agent หรือผู้ใช้ต้องการ **deploy / ตรวจสอบ production / log บนเซิร์ฟเวอร์จริง** — ให้ทำงานผ่าน **SSH** ที่ repo บนเซิร์ฟเวอร์ (`~/telepharmacy-erp`) ตาม [`docs/DEPLOYMENT_GUIDE.md`](docs/DEPLOYMENT_GUIDE.md) **ไม่ต้องรัน build production บนเครื่อง local เป็นขั้นตอนหลัก** ยกเว้นผู้ใช้ขอให้รัน local ชัดเจน
+
 ## Common Commands
 
 ```bash
@@ -137,6 +141,8 @@ Seed scripts: `packages/db/src/seed/seed-drugs.ts`, `seed-staff.ts`
 ### Docker Compose
 - `docker-compose.yml` — dev services only (PostgreSQL, Redis, Meilisearch, MinIO, Traefik, Prometheus, Grafana)
 - `docker-compose.prod.yml` — production (adds `api`, `admin`, `shop` app containers with Traefik TLS)
+
+**Deploy runbook (ขั้นตอนเต็ม, แบบ Docker vs PM2):** [`docs/DEPLOYMENT_GUIDE.md`](docs/DEPLOYMENT_GUIDE.md)
 
 ### Dockerfiles
 - `Dockerfile.api`, `Dockerfile.admin`, `Dockerfile.shop`

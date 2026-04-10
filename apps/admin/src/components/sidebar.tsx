@@ -27,6 +27,7 @@ import {
   Shield,
   Tag,
   FileText,
+  Webhook,
 } from 'lucide-react';
 
 const navigation: {
@@ -39,7 +40,7 @@ const navigation: {
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'คิวใบสั่งยา', href: '/dashboard/pharmacist', icon: ClipboardList, roles: ['pharmacist', 'super_admin', 'pharmacist_tech'], badgeKey: 'prescriptions' },
   { name: 'ออเดอร์', href: '/dashboard/orders', icon: ShoppingCart, badgeKey: 'orders' },
-  { name: 'ผู้ป่วย', href: '/dashboard/patients', icon: Users, roles: ['pharmacist', 'super_admin', 'pharmacist_tech', 'customer_service'] },
+  { name: 'ลูกค้า', href: '/dashboard/patients', icon: Users, roles: ['pharmacist', 'super_admin', 'pharmacist_tech', 'customer_service'] },
   { name: 'สินค้า', href: '/dashboard/products', icon: Pill },
   { name: 'โปรโมชั่น', href: '/dashboard/promotions', icon: Tag, roles: ['pharmacist', 'super_admin'] },
   { name: 'บทความ', href: '/dashboard/content', icon: FileText, roles: ['pharmacist', 'super_admin'] },
@@ -50,6 +51,12 @@ const navigation: {
   { name: 'Telemedicine', href: '/dashboard/telemedicine', icon: Video, roles: ['pharmacist', 'super_admin'] },
   { name: 'KYC Review', href: '/dashboard/kyc', icon: Shield, roles: ['pharmacist', 'super_admin'] },
   { name: 'กล่องข้อความ', href: '/dashboard/inbox', icon: Inbox, roles: ['pharmacist', 'super_admin', 'customer_service'], badgeKey: 'chat' },
+  {
+    name: 'LINE Webhook',
+    href: '/dashboard/line-webhooks',
+    icon: Webhook,
+    roles: ['pharmacist', 'super_admin', 'customer_service', 'pharmacist_tech'],
+  },
   { name: 'LINE Messaging', href: '/dashboard/messaging', icon: MessageSquare, roles: ['pharmacist', 'super_admin'] },
   { name: 'รายงาน', href: '/dashboard/reports', icon: BarChart3, roles: ['pharmacist', 'super_admin', 'accounting'] },
   { name: 'ตั้งค่า', href: '/dashboard/settings', icon: Settings, roles: ['super_admin'] },

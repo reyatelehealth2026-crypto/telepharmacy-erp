@@ -19,6 +19,7 @@ import {
   Calendar,
   MapPin,
   BadgeCheck,
+  Link2,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +28,8 @@ import { useAuthStore } from '@/store/auth';
 import { useAuthGuard } from '@/lib/use-auth-guard';
 import { getMyProfile, getMyAllergies, getMyDiseases, getMyMedications } from '@/lib/patient';
 import type { PatientProfile } from '@/lib/patient';
+import { getMyOrders } from '@/lib/orders';
+import { getMyPrescriptions } from '@/lib/prescriptions';
 
 const TIER_EMOJI: Record<string, string> = {
   bronze: '🥉',
@@ -69,7 +72,7 @@ export default function ProfilePage() {
   const { loading: authLoading } = useAuthGuard();
   const { accessToken, patient, clearAuth } = useAuthStore();
   const [profile, setProfile] = useState<PatientProfile | null>(null);
-  const [counts, setCounts] = useState({ allergies: 0, medications: 0, diseases: 0 });
+  const [counts, setCounts] = useState({ allergies: 0, medications: 0, diseases: 0, orders: 0, prescriptions: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -80,12 +83,16 @@ export default function ProfilePage() {
       getMyAllergies(accessToken),
       getMyDiseases(accessToken),
       getMyMedications(accessToken, true),
-    ]).then(([profileRes, allergiesRes, diseasesRes, medsRes]) => {
+      getMyOrders(accessToken, 1, 1),
+      getMyPrescriptions(accessToken, 1, 1),
+    ]).then(([profileRes, allergiesRes, diseasesRes, medsRes, ordersRes, rxRes]) => {
       if (profileRes.status === 'fulfilled') setProfile(profileRes.value);
       setCounts({
         allergies: allergiesRes.status === 'fulfilled' ? allergiesRes.value.length : 0,
         diseases: diseasesRes.status === 'fulfilled' ? diseasesRes.value.length : 0,
         medications: medsRes.status === 'fulfilled' ? medsRes.value.length : 0,
+        orders: ordersRes.status === 'fulfilled' ? (ordersRes.value.meta?.total ?? ordersRes.value.data?.length ?? 0) : 0,
+        prescriptions: rxRes.status === 'fulfilled' ? (rxRes.value.meta?.total ?? rxRes.value.data?.length ?? 0) : 0,
       });
     }).finally(() => setLoading(false));
   }, [accessToken]);
@@ -126,8 +133,8 @@ export default function ProfilePage() {
       badge: counts.diseases > 0 ? `${counts.diseases} รายการ` : undefined,
       color: 'text-purple-500',
     },
-    { href: '/rx', icon: FileText, label: 'ใบสั่งยาของฉัน', color: 'text-green-500' },
-    { href: '/orders', icon: Clock, label: 'ประวัติสั่งซื้อ', color: 'text-amber-500' },
+    { href: '/rx', icon: FileText, label: 'ใบสั่งยาของฉัน', badge: counts.prescriptions > 0 ? `${counts.prescriptions} รายการ` : undefined, color: 'text-green-500' },
+    { href: '/orders', icon: Clock, label: 'ประวัติสั่งซื้อ', badge: counts.orders > 0 ? `${counts.orders} รายการ` : undefined, color: 'text-amber-500' },
     {
       href: '/profile/loyalty',
       icon: Star,
@@ -135,6 +142,7 @@ export default function ProfilePage() {
       badge: loyaltyPoints > 0 ? `${(loyaltyPoints ?? 0).toLocaleString()} แต้ม` : undefined,
       color: 'text-yellow-500',
     },
+    { href: '/line/link', icon: Link2, label: 'เชื่อมบัญชี LINE เดิม', color: 'text-emerald-500' },
     { href: '/profile/kyc', icon: BadgeCheck, label: 'ยืนยันตัวตน (KYC)', color: 'text-teal-500' },
     { href: '/profile/notifications', icon: Bell, label: 'ตั้งค่าการแจ้งเตือน', color: 'text-indigo-500' },
     { href: '/notifications', icon: Bell, label: 'ประวัติการแจ้งเตือน', color: 'text-indigo-500' },

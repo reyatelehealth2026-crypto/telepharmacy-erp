@@ -46,6 +46,7 @@ export interface Order {
     status: string;
     qrCodeUrl: string | null;
     paidAt: string | null;
+    promptpayRef?: string | null;
   };
   prescriptionId: string | null;
   createdAt: string;
@@ -54,21 +55,19 @@ export interface Order {
 
 export interface CreateOrderData {
   items: Array<{ productId: string; quantity: number }>;
-  shippingMethod: ShippingMethod;
-  paymentMethod: PaymentMethod;
-  addressId: string;
-  address: {
-    recipientName: string;
-    phone: string;
+  deliveryAddress: {
     address: string;
-    subDistrict: string;
-    district: string;
+    subDistrict?: string;
+    district?: string;
     province: string;
-    postalCode: string;
-    notes?: string;
+    postalCode?: string;
+    phone?: string;
+    recipient?: string;
   };
-  couponCode?: string;
-  redeemPoints?: number;
+  paymentMethod?: string;
+  discountCode?: string;
+  usePoints?: number;
+  deliveryNotes?: string;
   notes?: string;
 }
 
@@ -88,7 +87,18 @@ export async function createOrder(token: string, data: CreateOrderData): Promise
 }
 
 export async function getMyOrders(token: string, page = 1, limit = 20): Promise<OrderListResponse> {
-  return api.get<OrderListResponse>(`/v1/patients/me/orders?page=${page}&limit=${limit}`, token);
+  const res = await api.get<any>(`/v1/orders?page=${page}&limit=${limit}`, token);
+  // API returns: { success, data: { success, data: Order[], meta } } (double-wrapped)
+  // or: { success, data: Order[] } (single-wrapped)
+  const inner = res?.data ?? res;
+  if (inner && Array.isArray(inner.data)) {
+    // double-wrapped: inner = { success, data: [], meta }
+    return { data: inner.data, meta: inner.meta } as OrderListResponse;
+  }
+  if (Array.isArray(inner)) {
+    return { data: inner, meta: { page, limit, total: inner.length, totalPages: 1 } } as OrderListResponse;
+  }
+  return { data: [], meta: { page, limit, total: 0, totalPages: 0 } } as OrderListResponse;
 }
 
 export async function getOrder(token: string, orderId: string): Promise<Order> {
@@ -97,18 +107,20 @@ export async function getOrder(token: string, orderId: string): Promise<Order> {
 }
 
 export async function uploadPaymentSlip(token: string, orderId: string, file: File): Promise<{ verified: boolean; message: string }> {
-  const formData = new FormData();
-  formData.append('slip', file);
-
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-  const res = await fetch(`${API_BASE}/v1/orders/${orderId}/slip`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body: formData,
+  // Convert file to base64 data URL to send as slipUrl
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
   });
 
-  if (!res.ok) throw new Error('Upload failed');
-  return res.json();
+  const res = await api.post<any>(`/v1/orders/${orderId}/slip`, { slipUrl: dataUrl }, token);
+  const payload = res?.data ?? res;
+  return {
+    verified: payload?.verified ?? payload?.status === 'verified',
+    message: payload?.message ?? 'ส่งสลิปแล้ว',
+  };
 }
 
 export async function reOrder(token: string, orderId: string): Promise<Order> {
@@ -128,7 +140,8 @@ export async function validateCoupon(
   code: string,
   subtotal: number,
 ): Promise<CouponValidation> {
-  return api.post<CouponValidation>('/v1/orders/validate-coupon', { code, subtotal }, token);
+  const res = await api.post<any>('/v1/orders/validate-coupon', { code, subtotal }, token);
+  return (res?.data ?? res) as CouponValidation;
 }
 
 export const SHIPPING_OPTIONS: Array<{

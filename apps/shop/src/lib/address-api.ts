@@ -11,6 +11,8 @@ interface ApiAddress {
   district: string | null;
   province: string;
   postalCode: string | null;
+  latitude: number | string | null;
+  longitude: number | string | null;
   notes: string | null;
   isDefault: boolean;
 }
@@ -26,6 +28,8 @@ function toStoreAddress(a: ApiAddress): Address {
     district: a.district ?? '',
     province: a.province,
     postalCode: a.postalCode ?? '',
+    latitude: a.latitude === null || a.latitude === undefined ? null : Number(a.latitude),
+    longitude: a.longitude === null || a.longitude === undefined ? null : Number(a.longitude),
     notes: a.notes ?? '',
     isDefault: a.isDefault,
   };

@@ -11,7 +11,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ProductCard } from '@/components/product/product-card';
-import { getProducts, DRUG_CLASSIFICATION_OPTIONS } from '@/lib/products';
+import { getProducts, DRUG_CLASSIFICATION_OPTIONS, productCardImageUrl } from '@/lib/products';
 import type { Product } from '@/lib/products';
 import { useSearchParams, useRouter } from 'next/navigation';
 
@@ -151,7 +151,7 @@ function SearchPageInner() {
   return (
     <div className="space-y-4">
       {/* Search Bar */}
-      <div className="sticky top-14 z-30 bg-background px-4 pb-3 pt-3">
+      <div className="sticky top-[104px] z-30 bg-background px-4 pb-3 pt-3">
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -343,9 +343,12 @@ function SearchPageInner() {
                 <ProductCard
                   key={product.id}
                   id={product.id}
+                  sku={product.sku}
+                  slug={product.slug}
+                  shortSlug={product.shortSlug}
                   name={product.nameTh}
                   brand={product.brand ?? undefined}
-                  imageUrl={product.imageUrl ?? undefined}
+                  imageUrl={productCardImageUrl(product)}
                   price={product.sellPrice ?? 0}
                   memberPrice={product.memberPrice ?? undefined}
                   comparePrice={product.comparePrice ?? undefined}

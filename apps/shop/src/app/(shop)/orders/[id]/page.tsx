@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/store/auth';
 import { getOrder, reOrder, type Order, type OrderStatus } from '@/lib/orders';
+import { useCartStore } from '@/store/cart';
 import { formatPrice, formatDate } from '@/lib/utils';
 
 const statusConfig: Record<OrderStatus, { label: string; gradient: string; icon: typeof Package }> = {
@@ -92,6 +93,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const { id } = use(params);
   const router = useRouter();
   const { accessToken } = useAuthStore();
+  const { addItem, clearCart } = useCartStore();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [reordering, setReordering] = useState(false);
@@ -112,7 +114,24 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     if (!accessToken || !order) return;
     setReordering(true);
     try {
-      await reOrder(accessToken, order.id);
+      // Populate cart store from order items directly
+      clearCart();
+      for (const item of order.items) {
+        addItem({
+          productId: item.productId,
+          name: item.name,
+          price: item.unitPrice,
+          imageUrl: item.imageUrl,
+          unit: 'เม็ด',
+          requiresPrescription: false,
+        });
+        // addItem always adds 1; adjust to actual quantity
+        if (item.quantity > 1) {
+          useCartStore.getState().updateQuantity(item.productId, item.quantity);
+        }
+      }
+      // Also notify backend to create a new draft order
+      await reOrder(accessToken, order.id).catch(() => {});
       toast.success('เพิ่มสินค้าลงตะกร้าแล้ว');
       router.push('/cart');
     } catch (err: any) {

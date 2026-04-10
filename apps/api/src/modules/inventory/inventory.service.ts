@@ -452,22 +452,18 @@ export class InventoryService {
         productSku: products.sku,
       })
       .from(stockMovements)
-      .innerJoin(inventoryLots, eq(stockMovements.lotId, inventoryLots.id))
+      .leftJoin(inventoryLots, eq(stockMovements.lotId, inventoryLots.id))
       .innerJoin(products, eq(stockMovements.productId, products.id))
       .where(whereClause)
       .orderBy(desc(stockMovements.createdAt))
       .limit(limit)
       .offset(offset);
 
-    return {
-      success: true,
-      data: movements.map((r: any) => ({
-        ...r.movement,
-        lotNo: r.lotNo,
-        productName: r.productName,
-        productSku: r.productSku,
-      })),
-      meta: { page, limit },
-    };
+    return movements.map((r: any) => ({
+      ...r.movement,
+      lotNo: r.lotNo ?? null,
+      productName: r.productName,
+      productSku: r.productSku,
+    }));
   }
 }

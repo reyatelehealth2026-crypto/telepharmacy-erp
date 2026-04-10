@@ -23,6 +23,8 @@ import { CreateChronicDiseaseDto } from './dto/create-chronic-disease.dto';
 import { UpdateChronicDiseaseDto } from './dto/update-chronic-disease.dto';
 import { CreateMedicationDto } from './dto/create-medication.dto';
 import { UpdateMedicationDto } from './dto/update-medication.dto';
+import { CreateAddressDto } from './dto/create-address.dto';
+import { UpdateAddressDto } from './dto/update-address.dto';
 
 @Controller('patients')
 export class PatientController {
@@ -174,7 +176,7 @@ export class PatientController {
   @PatientOnly()
   @Post('me/addresses')
   @HttpCode(HttpStatus.CREATED)
-  createMyAddress(@CurrentUser() user: RequestUser, @Body() dto: any) {
+  createMyAddress(@CurrentUser() user: RequestUser, @Body() dto: CreateAddressDto) {
     return this.patientService.createAddress(user.id, dto);
   }
 
@@ -183,7 +185,7 @@ export class PatientController {
   updateMyAddress(
     @CurrentUser() user: RequestUser,
     @Param('addressId', ParseUUIDPipe) addressId: string,
-    @Body() dto: any,
+    @Body() dto: UpdateAddressDto,
   ) {
     return this.patientService.updateAddress(user.id, addressId, dto);
   }

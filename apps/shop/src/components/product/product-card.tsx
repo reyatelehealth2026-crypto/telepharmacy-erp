@@ -11,6 +11,9 @@ import { requiresPrescriptionForClassification } from '@/lib/products';
 
 interface ProductCardProps {
   id: string;
+  sku?: string;
+  slug?: string;
+  shortSlug?: string;
   name: string;
   brand?: string;
   imageUrl?: string;
@@ -26,6 +29,9 @@ interface ProductCardProps {
 
 export function ProductCard({
   id,
+  sku,
+  slug,
+  shortSlug,
   name,
   brand,
   imageUrl,
@@ -60,53 +66,71 @@ export function ProductCard({
     });
   };
 
+  const discountPct =
+    comparePrice && comparePrice > price
+      ? Math.round(((comparePrice - price) / comparePrice) * 100)
+      : null;
+
   return (
     <Link
-      href={`/product/${id}`}
-      className="group flex flex-col overflow-hidden rounded-xl border bg-card transition-shadow hover:shadow-md"
+      href={`/product/${shortSlug || sku || slug || id}`}
+      className="group flex flex-col overflow-hidden rounded-2xl border bg-card shadow-card transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5"
     >
-      <div className="relative aspect-square bg-muted">
+      {/* Image */}
+      <div className="relative aspect-square overflow-hidden bg-muted">
         {imageUrl ? (
           <Image
             src={imageUrl}
             alt={name}
             fill
-            className="object-cover transition-transform group-hover:scale-105"
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
             sizes="(max-width: 640px) 50vw, 33vw"
           />
         ) : (
           <div className="flex h-full items-center justify-center">
-            <Pill className="h-12 w-12 text-muted-foreground/40" />
+            <Pill className="h-10 w-10 text-muted-foreground/30" />
           </div>
         )}
+
+        {/* Out of stock overlay */}
         {!inStock && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-            <span className="rounded-full bg-white px-3 py-1 text-sm font-medium text-foreground">
+          <div className="glass-dark absolute inset-0 flex items-center justify-center">
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-foreground shadow-sm">
               สินค้าหมด
             </span>
           </div>
         )}
-        {needsRx && (
-          <Badge variant="warning" className="absolute left-2 top-2">
-            ต้องมีใบสั่งยา
-          </Badge>
-        )}
-        {comparePrice && comparePrice > price && (
-          <Badge variant="destructive" className="absolute right-2 top-2">
-            -{Math.round(((comparePrice - price) / comparePrice) * 100)}%
+
+        {/* Badges row */}
+        <div className="absolute left-2 top-2 flex flex-col gap-1">
+          {needsRx && (
+            <Badge variant="warning" className="text-[10px] px-1.5 py-0.5 shadow-sm">
+              ใบสั่งยา
+            </Badge>
+          )}
+        </div>
+        {discountPct !== null && (
+          <Badge
+            variant="destructive"
+            className="absolute right-2 top-2 text-[10px] px-1.5 py-0.5 shadow-sm"
+          >
+            -{discountPct}%
           </Badge>
         )}
       </div>
 
-      <div className="flex flex-1 flex-col gap-1 p-3">
+      {/* Content */}
+      <div className="flex flex-1 flex-col gap-1.5 p-3">
         {brand && (
-          <span className="text-xs text-muted-foreground">{brand}</span>
+          <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/80">
+            {brand}
+          </span>
         )}
-        <h3 className="line-clamp-2 text-sm font-medium leading-tight">
+        <h3 className="line-clamp-2 text-sm font-semibold leading-snug">
           {name}
         </h3>
 
-        {/* Stock status badge */}
+        {/* Stock badge + tags */}
         <div className="flex flex-wrap items-center gap-1">
           {inStock ? (
             <Badge variant="success" className="text-[10px] px-1.5 py-0">
@@ -127,8 +151,9 @@ export function ProductCard({
           ))}
         </div>
 
-        <div className="mt-auto pt-2">
-          <div className="flex items-baseline gap-2">
+        {/* Price block */}
+        <div className="mt-auto pt-1.5">
+          <div className="flex items-baseline gap-1.5">
             <span className="text-base font-bold text-primary">
               {formatPrice(price)}
             </span>
@@ -139,21 +164,31 @@ export function ProductCard({
             )}
           </div>
           {memberPrice && memberPrice < price && (
-            <span className="text-xs text-amber-600">
+            <span className="block text-[11px] font-medium text-amber-600">
               สมาชิก {formatPrice(memberPrice)}
             </span>
           )}
-          <span className="block text-xs text-muted-foreground">/{unit}</span>
+          <span className="block text-[11px] text-muted-foreground">/{unit}</span>
         </div>
 
         {!needsRx && inStock && (
           <Button
             size="sm"
-            className="mt-2 w-full"
+            className="mt-1.5 w-full gap-1.5 rounded-xl text-xs shadow-sm"
             onClick={handleAddToCart}
           >
-            <ShoppingCart className="h-4 w-4" />
+            <ShoppingCart className="h-3.5 w-3.5" />
             เพิ่มลงตะกร้า
+          </Button>
+        )}
+        {needsRx && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="mt-1.5 w-full gap-1.5 rounded-xl text-xs"
+            asChild
+          >
+            <Link href={`/product/${shortSlug || sku || slug || id}`}>ดูรายละเอียด</Link>
           </Button>
         )}
       </div>

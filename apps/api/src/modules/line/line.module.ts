@@ -16,12 +16,18 @@ import { SmartOrderParserService } from './services/smart-order-parser.service';
 import { SentimentService } from './services/sentiment.service';
 import { ChatService } from './services/chat.service';
 import { InboxService } from './services/inbox.service';
+import { LineContactJourneyService } from './services/line-contact-journey.service';
+import { LineWebhookLogService } from './services/line-webhook-log.service';
+import { PatientTimelineService } from './services/patient-timeline.service';
 import { BroadcastProcessor } from './processors/broadcast.processor';
 import { LineSignatureGuard } from './guards/line-signature.guard';
+import { LineAutomationService } from './services/line-automation.service';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
   imports: [
     BullModule.registerQueue({ name: BROADCAST_QUEUE }),
+    AuditModule,
     HealthModule,
     EventsModule,
     PrescriptionModule,
@@ -37,6 +43,10 @@ import { LineSignatureGuard } from './guards/line-signature.guard';
     SentimentService,
     ChatService,
     InboxService,
+    LineContactJourneyService,
+    LineWebhookLogService,
+    PatientTimelineService,
+    LineAutomationService,
     BroadcastProcessor,
     LineSignatureGuard,
   ],

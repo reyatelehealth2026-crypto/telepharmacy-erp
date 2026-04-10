@@ -1,6 +1,6 @@
 import { Injectable, Inject, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { patients, chatSessions, chatMessages } from '@telepharmacy/db';
 import { chatWithPatientSync } from '@telepharmacy/ai';
 import { DRIZZLE } from '../../../database/database.constants';
@@ -8,8 +8,13 @@ import { LineClientService } from './line-client.service';
 import { FlexMessageService } from './flex-message.service';
 import { SmartOrderParserService } from './smart-order-parser.service';
 import { SentimentService } from './sentiment.service';
+import { LineContactJourneyService } from './line-contact-journey.service';
+import { LineWebhookLogService } from './line-webhook-log.service';
+import { LineAutomationService } from './line-automation.service';
+import { AuditService } from '../../audit/audit.service';
 import { EventsService } from '../../events/events.service';
 import { PrescriptionService } from '../../prescription/prescription.service';
+import { DynamicConfigService } from '../../health/dynamic-config.service';
 import type {
   LineWebhookEvent,
   LineMessageEvent,
@@ -34,7 +39,12 @@ export class LineWebhookService {
     private readonly flexMessage: FlexMessageService,
     private readonly smartOrderParser: SmartOrderParserService,
     private readonly sentimentService: SentimentService,
+    private readonly journeyService: LineContactJourneyService,
+    private readonly webhookLogService: LineWebhookLogService,
+    private readonly lineAutomation: LineAutomationService,
+    private readonly auditService: AuditService,
     private readonly config: ConfigService,
+    private readonly dynamicConfig: DynamicConfigService,
     @Optional() private readonly prescriptionService?: PrescriptionService,
     @Optional() private readonly eventsService?: EventsService,
   ) {
@@ -48,27 +58,66 @@ export class LineWebhookService {
     );
   }
 
+  /**
+   * Re-process a failed webhook from stored payload. Creates a new log row (audit via replayedFromEventId).
+   */
+  async replayFailedEvent(sourceEventId: string, staffId: string) {
+    const row = await this.webhookLogService.createReplayFromFailed(sourceEventId, staffId);
+    await this.auditService.log({
+      tableName: 'line_webhook_events',
+      recordId: row.id,
+      action: 'line_webhook_replay',
+      newValues: { sourceEventId, replayEventId: row.id },
+      changedBy: staffId,
+    });
+    const event = row.payload as LineWebhookEvent;
+    await this.runProcessingPipeline(event, row.id);
+    return this.webhookLogService.getEvent(row.id);
+  }
+
   private async routeEvent(event: LineWebhookEvent): Promise<void> {
     if (event.mode === 'standby') return;
+
+    const loggedEvent = await this.webhookLogService.beginProcessing(event);
+
+    if (loggedEvent.duplicate) {
+      this.logger.debug(`Duplicate LINE webhook skipped: ${loggedEvent.record.providerEventKey}`);
+      return;
+    }
+
+    await this.runProcessingPipeline(event, loggedEvent.record.id);
+  }
+
+  /** Core handler path for both live webhooks and staff-initiated replays (dedupe already resolved). */
+  private async runProcessingPipeline(event: LineWebhookEvent, eventId: string): Promise<void> {
+    if (event.mode === 'standby') {
+      await this.webhookLogService.markProcessed(eventId, { skipped: 'standby_mode' });
+      return;
+    }
+
+    await this.webhookLogService.markProcessing(eventId);
 
     try {
       switch (event.type) {
         case 'message':
-          await this.handleMessage(event);
+          await this.handleMessage(event, eventId);
           break;
         case 'follow':
-          await this.handleFollow(event);
+          await this.handleFollow(event, eventId);
           break;
         case 'unfollow':
           await this.handleUnfollow(event);
           break;
         case 'postback':
-          await this.handlePostback(event);
+          await this.handlePostback(event, eventId);
           break;
         default:
           this.logger.debug(`Unhandled event type: ${(event as any).type}`);
       }
+
+      await this.webhookLogService.markProcessed(eventId);
     } catch (error) {
+      await this.webhookLogService.markFailed(eventId, error);
       this.logger.error(
         `Error processing ${event.type} event: ${error instanceof Error ? error.message : error}`,
         error instanceof Error ? error.stack : undefined,
@@ -78,18 +127,32 @@ export class LineWebhookService {
 
   // ─── Message Handlers ──────────────────────────────────────────
 
-  private async handleMessage(event: LineMessageEvent): Promise<void> {
+  private async handleMessage(event: LineMessageEvent, eventId: string): Promise<void> {
     const userId = event.source.userId;
     if (!userId) return;
 
     const patient = await this.findOrCreatePatient(userId);
 
+    await this.journeyService.upsertJourney({
+      patientId: patient.id,
+      lineUserId: userId,
+      state: this.journeyService.isPatientRegistered(patient)
+        ? 'linked_returning'
+        : 'stub_unfinished',
+      currentStep: 'message_received',
+      sourceEventId: eventId,
+    });
+
+    await this.webhookLogService.attachContext(eventId, {
+      patientId: patient.id,
+    });
+
     switch (event.message.type) {
       case 'text':
-        await this.handleTextMessage(event, patient);
+        await this.handleTextMessage(event, patient, eventId);
         break;
       case 'image':
-        await this.handleImageMessage(event, patient);
+        await this.handleImageMessage(event, patient, eventId);
         break;
       case 'sticker':
         await this.handleStickerMessage(event);
@@ -105,11 +168,30 @@ export class LineWebhookService {
   private async handleTextMessage(
     event: LineMessageEvent,
     patient: any,
+    eventId: string,
   ): Promise<void> {
     const msg = event.message as LineTextMessage;
     const userId = event.source.userId!;
+    const triage = this.classifyTextMessage(msg.text, patient);
 
-    const session = await this.getOrCreateChatSession(patient.id, userId);
+    const session = await this.getOrCreateChatSession(patient.id, userId, {
+      entryPoint: 'message',
+      entryIntent: triage.entryIntent,
+      queueStatus: triage.queueStatus,
+      priority: triage.priority,
+    });
+
+    await this.webhookLogService.attachContext(eventId, {
+      patientId: patient.id,
+      sessionId: session.id,
+      processingData: {
+        entryIntent: triage.entryIntent,
+        queueStatus: triage.queueStatus,
+        priority: triage.priority,
+      },
+    });
+
+    const now = new Date();
 
     const [savedMsg] = await this.db.insert(chatMessages).values({
       sessionId: session.id,
@@ -117,15 +199,29 @@ export class LineWebhookService {
       content: msg.text,
       lineMessageId: msg.id,
       messageType: 'text',
+      metadata: {
+        entryIntent: triage.entryIntent,
+        queueStatus: triage.queueStatus,
+        priority: triage.priority,
+      },
     }).returning();
 
     await this.db
       .update(chatSessions)
       .set({
         messageCount: session.messageCount + 1,
-        updatedAt: new Date(),
+        entryPoint: 'message',
+        entryIntent: triage.entryIntent,
+        queueStatus: triage.queueStatus,
+        priority: triage.priority,
+        lastInboundAt: now,
+        updatedAt: now,
       })
       .where(eq(chatSessions.id, session.id));
+
+    void this.lineAutomation
+      .applyIntentTag(patient.id, triage.entryIntent)
+      .catch((err) => this.logger.warn(`applyIntentTag: ${(err as Error).message}`));
 
     // Emit real-time WebSocket event for admin inbox
     try {
@@ -173,11 +269,51 @@ export class LineWebhookService {
           text: `สวัสดีค่ะ คุณ${patient.firstName} 🙏\nRe-Ya Telepharmacy ยินดีให้บริการค่ะ\n\nพิมพ์ "เมนู" เพื่อดูบริการทั้งหมด`,
         },
       ]);
+      await this.markOutboundActivity(session.id, {
+        queueStatus: 'self_service',
+      });
       return;
     }
 
     if (text === 'เมนู' || text === 'menu') {
-      await this.sendMainMenu(event.replyToken);
+      await this.sendMainMenu(event.replyToken, patient);
+      await this.markOutboundActivity(session.id, {
+        queueStatus: 'self_service',
+      });
+      return;
+    }
+
+    if (triage.entryIntent === 'register' && !this.journeyService.isPatientRegistered(patient)) {
+      await this.lineClient.replyMessage(event.replyToken, [
+        {
+          type: 'text',
+          text: `📝 สมัครสมาชิกหรือกรอกข้อมูลเพิ่มเติมได้ที่:\n${this.shopUrl}/login`,
+        },
+      ]);
+      await this.markOutboundActivity(session.id, {
+        queueStatus: 'self_service',
+      });
+      return;
+    }
+
+    if (triage.entryIntent === 'link_account') {
+      await this.lineClient.replyMessage(event.replyToken, [
+        {
+          type: 'text',
+          text: `🔗 เชื่อมบัญชีเดิมได้ที่:\n${this.shopUrl}/line/link\n\nกรุณาเตรียมหมายเลขสมาชิก เบอร์โทร และวันเดือนปีเกิดค่ะ`,
+        },
+      ]);
+      await this.markOutboundActivity(session.id, {
+        queueStatus: 'self_service',
+      });
+
+      await this.journeyService.upsertJourney({
+        patientId: patient.id,
+        lineUserId: userId,
+        state: 'link_pending',
+        currentStep: 'link_prompted',
+        metadata: { sessionId: session.id },
+      });
       return;
     }
 
@@ -188,26 +324,55 @@ export class LineWebhookService {
           text: `เปิดร้านค้าเพื่อสั่งซื้อยาและผลิตภัณฑ์สุขภาพได้เลยค่ะ 🛒\n${this.shopUrl}`,
         },
       ]);
+      await this.markOutboundActivity(session.id, {
+        queueStatus: 'self_service',
+      });
       return;
     }
 
     if (text.includes('ใบสั่งยา') || text === 'rx') {
+      await this.markSessionNeedsHuman(
+        session.id,
+        {
+          entryIntent: 'rx_upload',
+          priority: triage.priority,
+          reason: 'rx_upload_requested',
+        },
+        patient.id,
+      );
+
       await this.lineClient.replyMessage(event.replyToken, [
         {
           type: 'text',
           text: `📋 ส่งรูปใบสั่งยามาได้เลยค่ะ\nหรือเปิดหน้าอัปโหลดที่:\n${this.shopUrl}/rx/upload`,
         },
       ]);
+      await this.markOutboundActivity(session.id, {
+        queueStatus: 'needs_human',
+      });
       return;
     }
 
     if (text.includes('ปรึกษา') || text.includes('เภสัชกร')) {
+      await this.markSessionNeedsHuman(
+        session.id,
+        {
+          entryIntent: 'consult',
+          priority: triage.priority,
+          reason: triage.handoffReason ?? 'consult_requested',
+        },
+        patient.id,
+      );
+
       await this.lineClient.replyMessage(event.replyToken, [
         {
           type: 'text',
           text: '💬 กรุณารอสักครู่ค่ะ กำลังเชื่อมต่อเภสัชกรให้...\nหากต้องการปรึกษาทันที กดลิงก์ด้านล่างค่ะ',
         },
       ]);
+      await this.markOutboundActivity(session.id, {
+        queueStatus: 'needs_human',
+      });
       return;
     }
 
@@ -224,6 +389,9 @@ export class LineWebhookService {
           text: `🛒 เข้าใจค่ะ คุณต้องการสั่ง:\n${entityList}\n\nเปิดร้านค้าเพื่อเพิ่มลงตะกร้าได้เลยค่ะ:\n${this.shopUrl}`,
         },
       ]);
+      await this.markOutboundActivity(session.id, {
+        queueStatus: 'self_service',
+      });
       return;
     }
 
@@ -234,11 +402,37 @@ export class LineWebhookService {
           text: `📦 ติดตามออเดอร์ได้ที่:\n${this.shopUrl}/orders`,
         },
       ]);
+      await this.markOutboundActivity(session.id, {
+        queueStatus: 'self_service',
+      });
+      return;
+    }
+
+    if (triage.queueStatus === 'needs_human') {
+      await this.markSessionNeedsHuman(
+        session.id,
+        {
+          entryIntent: triage.entryIntent,
+          priority: triage.priority,
+          reason: triage.handoffReason ?? 'manual_triage',
+        },
+        patient.id,
+      );
+
+      await this.lineClient.replyMessage(event.replyToken, [
+        {
+          type: 'text',
+          text: '🙏 ได้รับข้อความแล้วค่ะ เรื่องนี้กำลังส่งต่อให้เภสัชกรช่วยดูแลโดยเร็วที่สุด',
+        },
+      ]);
+      await this.markOutboundActivity(session.id, {
+        queueStatus: 'needs_human',
+      });
       return;
     }
 
     // ── AI Chatbot Response → fallback to staff inbox ──
-    await this.handleAiChatbotResponse(event, msg.text, session, patient);
+    await this.handleAiChatbotResponse(event, msg.text, session, patient, triage);
   }
 
   /**
@@ -250,11 +444,20 @@ export class LineWebhookService {
     event: LineMessageEvent,
     text: string,
     session: any,
-    _patient: any,
+    patient: any,
+    triage: {
+      entryIntent: 'consult' | 'register' | 'link_account' | 'rx_upload' | 'order_tracking' | 'product_search' | 'other';
+      queueStatus: 'self_service' | 'needs_human' | 'assigned' | 'resolved';
+      priority: 'normal' | 'urgent';
+      handoffReason?: string;
+    },
   ): Promise<void> {
 
     try {
-      const aiResponse = await chatWithPatientSync(text, [], undefined);
+      const geminiApiKey = await this.dynamicConfig.resolve('ai.geminiApiKey', 'GEMINI_API_KEY');
+      const aiResponse = await chatWithPatientSync(text, [], undefined, {
+        geminiApiKey: geminiApiKey?.trim() || undefined,
+      });
 
       // Determine if AI can handle this query
       const aiCanHandle =
@@ -269,6 +472,10 @@ export class LineWebhookService {
           role: 'bot',
           content: aiResponse.message,
           messageType: 'text',
+          metadata: {
+            entryIntent: triage.entryIntent,
+            source: 'ai',
+          },
           aiModel: 'gemini-2.5-pro',
         });
 
@@ -297,7 +504,14 @@ export class LineWebhookService {
         // Update session type to ai_assisted
         await this.db
           .update(chatSessions)
-          .set({ sessionType: 'ai_assisted', updatedAt: new Date() })
+          .set({
+            sessionType: 'ai_assisted',
+            queueStatus: 'self_service',
+            entryIntent: triage.entryIntent,
+            priority: triage.priority,
+            lastOutboundAt: new Date(),
+            updatedAt: new Date(),
+          })
           .where(eq(chatSessions.id, session.id));
 
         return;
@@ -307,22 +521,63 @@ export class LineWebhookService {
     }
 
     // Fallback to staff inbox
+    await this.markSessionNeedsHuman(
+      session.id,
+      {
+        entryIntent: triage.entryIntent,
+        priority: triage.priority,
+        reason: triage.handoffReason ?? 'ai_fallback',
+      },
+      patient.id,
+    );
+
+    await this.createSystemMessage(
+      session.id,
+      'ระบบส่งต่อการสนทนาให้เภสัชกรดูแลต่อ',
+      {
+        handoffReason: triage.handoffReason ?? 'ai_fallback',
+        patientId: patient.id,
+      },
+      patient.id,
+    );
+
     await this.lineClient.replyMessage(event.replyToken, [
       {
         type: 'text',
         text: `ขอบคุณสำหรับข้อความค่ะ 🙏\nเภสัชกรจะตอบกลับโดยเร็วที่สุดค่ะ\n\nพิมพ์ "เมนู" เพื่อดูบริการทั้งหมด`,
       },
     ]);
+    await this.markOutboundActivity(session.id, {
+      queueStatus: 'needs_human',
+    });
   }
 
   private async handleImageMessage(
     event: LineMessageEvent,
     patient: any,
+    eventId: string,
   ): Promise<void> {
     const msg = event.message as LineImageMessage;
     const userId = event.source.userId!;
 
-    const session = await this.getOrCreateChatSession(patient.id, userId);
+    const session = await this.getOrCreateChatSession(patient.id, userId, {
+      entryPoint: 'message',
+      entryIntent: 'rx_upload',
+      queueStatus: 'needs_human',
+      priority: 'normal',
+    });
+
+    await this.webhookLogService.attachContext(eventId, {
+      patientId: patient.id,
+      sessionId: session.id,
+      processingData: {
+        entryIntent: 'rx_upload',
+        queueStatus: 'needs_human',
+        priority: 'normal',
+      },
+    });
+
+    const now = new Date();
 
     await this.db.insert(chatMessages).values({
       sessionId: session.id,
@@ -330,6 +585,10 @@ export class LineWebhookService {
       content: '[รูปภาพ]',
       lineMessageId: msg.id,
       messageType: 'image',
+      metadata: {
+        entryIntent: 'rx_upload',
+        queueStatus: 'needs_human',
+      },
       attachments: [
         {
           type: 'image',
@@ -343,9 +602,18 @@ export class LineWebhookService {
       .update(chatSessions)
       .set({
         messageCount: session.messageCount + 1,
-        updatedAt: new Date(),
+        entryPoint: 'message',
+        entryIntent: 'rx_upload',
+        queueStatus: 'needs_human',
+        priority: 'normal',
+        lastInboundAt: now,
+        updatedAt: now,
       })
       .where(eq(chatSessions.id, session.id));
+
+    void this.lineAutomation
+      .applyIntentTag(patient.id, 'rx_upload')
+      .catch((err) => this.logger.warn(`applyIntentTag: ${(err as Error).message}`));
 
     // ── Attempt prescription OCR ──
     try {
@@ -387,6 +655,17 @@ export class LineWebhookService {
           },
         ]);
 
+        await this.createSystemMessage(
+          session.id,
+          `ระบบตรวจพบใบสั่งยาและสร้างรายการ ${rx.rxNo}`,
+          { prescriptionId: rx.id },
+          patient.id,
+        );
+
+        await this.markOutboundActivity(session.id, {
+          queueStatus: 'needs_human',
+        });
+
         this.logger.log(
           `Auto-created prescription ${rx.rxNo} from LINE image (confidence: ${ocrResult.confidence})`,
         );
@@ -397,6 +676,16 @@ export class LineWebhookService {
     }
 
     // Not a prescription or OCR failed — route to staff inbox
+    await this.markSessionNeedsHuman(
+      session.id,
+      {
+        entryIntent: 'rx_upload',
+        priority: 'normal',
+        reason: 'image_received',
+      },
+      patient.id,
+    );
+
     await this.lineClient.replyMessage(event.replyToken, [
       {
         type: 'text',
@@ -404,6 +693,9 @@ export class LineWebhookService {
           `${this.shopUrl}/rx/upload`,
       },
     ]);
+    await this.markOutboundActivity(session.id, {
+      queueStatus: 'needs_human',
+    });
   }
 
   private async handleStickerMessage(
@@ -427,7 +719,7 @@ export class LineWebhookService {
 
   // ─── Follow / Unfollow ─────────────────────────────────────────
 
-  private async handleFollow(event: LineFollowEvent): Promise<void> {
+  private async handleFollow(event: LineFollowEvent, eventId: string): Promise<void> {
     const userId = event.source.userId;
     if (!userId) return;
 
@@ -440,11 +732,33 @@ export class LineWebhookService {
     }
 
     const patient = await this.findOrCreatePatient(userId, displayName);
+    const isRegistered = this.journeyService.isPatientRegistered(patient);
+
+    await this.journeyService.upsertJourney({
+      patientId: patient.id,
+      lineUserId: userId,
+      state: isRegistered ? 'linked_returning' : 'new_unregistered',
+      currentStep: 'follow',
+      sourceEventId: eventId,
+      metadata: { displayName },
+    });
+
+    await this.webhookLogService.attachContext(eventId, {
+      patientId: patient.id,
+      processingData: {
+        state: isRegistered ? 'linked_returning' : 'new_unregistered',
+      },
+    });
 
     // Send welcome Flex Message with quick action buttons
     const welcomeMessage = this.flexMessage.welcome({
       displayName,
       shopUrl: this.shopUrl,
+      registerUrl: `${this.shopUrl}/login`,
+      linkUrl: `${this.shopUrl}/line/link`,
+      profileUrl: `${this.shopUrl}/profile`,
+      rxUploadUrl: `${this.shopUrl}/rx/upload`,
+      isRegistered,
     });
 
     // Add registration prompt if patient hasn't completed profile
@@ -455,7 +769,7 @@ export class LineWebhookService {
     if (needsRegistration) {
       messages.push({
         type: 'text',
-        text: `📝 กรุณาลงทะเบียนข้อมูลเพื่อรับบริการที่ดียิ่งขึ้นค่ะ\n\n👤 ลงทะเบียนที่:\n${this.shopUrl}/profile/edit`,
+        text: `📝 กรุณาลงทะเบียนข้อมูลเพื่อรับบริการที่ดียิ่งขึ้นค่ะ\n\n👤 ลงทะเบียนที่:\n${this.shopUrl}/login`,
       });
     }
 
@@ -471,25 +785,69 @@ export class LineWebhookService {
 
   // ─── Postback Handler ─────────────────────────────────────────
 
-  private async handlePostback(event: LinePostbackEvent): Promise<void> {
+  private async handlePostback(event: LinePostbackEvent, eventId: string): Promise<void> {
     const userId = event.source.userId;
     if (!userId) return;
+
+    const patient = await this.findOrCreatePatient(userId);
 
     const params = new URLSearchParams(event.postback.data);
     const action = params.get('action');
 
+    await this.journeyService.upsertJourney({
+      patientId: patient.id,
+      lineUserId: userId,
+      state: this.journeyService.isPatientRegistered(patient)
+        ? 'linked_returning'
+        : 'stub_unfinished',
+      currentStep: action ?? 'postback',
+      sourceEventId: eventId,
+    });
+
+    await this.webhookLogService.attachContext(eventId, {
+      patientId: patient.id,
+      processingData: { action },
+    });
+
     switch (action) {
-      case 'consult':
+      case 'consult': {
+        const session = await this.getOrCreateChatSession(patient.id, userId, {
+          entryPoint: 'postback',
+          entryIntent: 'consult',
+          queueStatus: 'needs_human',
+          priority: 'normal',
+        });
+
+        await this.webhookLogService.attachContext(eventId, {
+          patientId: patient.id,
+          sessionId: session.id,
+          processingData: { action, entryIntent: 'consult' },
+        });
+
+        await this.markSessionNeedsHuman(
+          session.id,
+          {
+            entryIntent: 'consult',
+            priority: 'normal',
+            reason: 'consult_postback',
+          },
+          patient.id,
+        );
+
         await this.lineClient.replyMessage(event.replyToken, [
           {
             type: 'text',
             text: '💬 กรุณาพิมพ์อาการหรือคำถามที่ต้องการปรึกษาเภสัชกรค่ะ\nเภสัชกรจะตอบกลับโดยเร็วที่สุดค่ะ',
           },
         ]);
+        await this.markOutboundActivity(session.id, {
+          queueStatus: 'needs_human',
+        });
         break;
+      }
 
       case 'menu':
-        await this.sendMainMenu(event.replyToken);
+        await this.sendMainMenu(event.replyToken, patient);
         break;
 
       case 'track_order': {
@@ -506,6 +864,15 @@ export class LineWebhookService {
       }
 
       case 'rx_upload':
+        await this.journeyService.upsertJourney({
+          patientId: patient.id,
+          lineUserId: userId,
+          state: this.journeyService.isPatientRegistered(patient)
+            ? 'linked_returning'
+            : 'stub_unfinished',
+          currentStep: 'rx_upload_prompted',
+          sourceEventId: eventId,
+        });
         await this.lineClient.replyMessage(event.replyToken, [
           {
             type: 'text',
@@ -519,6 +886,15 @@ export class LineWebhookService {
           {
             type: 'text',
             text: `👤 ดูและแก้ไขข้อมูลส่วนตัวได้ที่:\n${this.shopUrl}/profile`,
+          },
+        ]);
+        break;
+
+      case 'link_account':
+        await this.lineClient.replyMessage(event.replyToken, [
+          {
+            type: 'text',
+            text: `🔗 เชื่อมบัญชีเดิมได้ที่:\n${this.shopUrl}/line/link\n\nกรุณาเตรียมหมายเลขสมาชิก เบอร์โทร และวันเดือนปีเกิดค่ะ`,
           },
         ]);
         break;
@@ -537,6 +913,7 @@ export class LineWebhookService {
     lineUserId: string,
     displayName?: string,
   ): Promise<any> {
+    // First check if patient already exists
     const [existing] = await this.db
       .select()
       .from(patients)
@@ -545,31 +922,66 @@ export class LineWebhookService {
 
     if (existing) return existing;
 
+    // Generate patient number and attempt insert with conflict handling
     const patientNo = await this.generatePatientNo();
-    const [created] = await this.db
-      .insert(patients)
-      .values({
-        lineUserId,
-        patientNo,
-        firstName: displayName ?? 'ผู้ใช้',
-        lastName: '',
-        lineLinkedAt: new Date(),
-      })
-      .returning();
+    try {
+      const [created] = await this.db
+        .insert(patients)
+        .values({
+          lineUserId,
+          patientNo,
+          firstName: displayName ?? 'ผู้ใช้',
+          lastName: '',
+          lineLinkedAt: new Date(),
+        })
+        .onConflictDoNothing({ target: patients.lineUserId })
+        .returning();
 
-    this.logger.log(`New patient created via LINE: ${patientNo}`);
-    return created;
+      // If conflict occurred, returning() gives empty — re-fetch
+      if (!created) {
+        const [refetched] = await this.db
+          .select()
+          .from(patients)
+          .where(eq(patients.lineUserId, lineUserId))
+          .limit(1);
+        return refetched;
+      }
+
+      this.logger.log(`New patient created via LINE: ${patientNo}`);
+      return created;
+    } catch (error: any) {
+      // Handle race condition: if duplicate key on patientNo, re-fetch
+      if (error?.code === '23505') {
+        const [refetched] = await this.db
+          .select()
+          .from(patients)
+          .where(eq(patients.lineUserId, lineUserId))
+          .limit(1);
+        if (refetched) return refetched;
+      }
+      throw error;
+    }
   }
 
   private async getOrCreateChatSession(
     patientId: string,
     lineUserId: string,
+    routing?: {
+      entryPoint?: 'follow' | 'message' | 'postback' | 'rich_menu' | 'liff';
+      entryIntent?: 'consult' | 'register' | 'link_account' | 'rx_upload' | 'order_tracking' | 'product_search' | 'other';
+      queueStatus?: 'self_service' | 'needs_human' | 'assigned' | 'resolved';
+      priority?: 'normal' | 'urgent';
+    },
   ): Promise<any> {
     const [existing] = await this.db
       .select()
       .from(chatSessions)
-      .where(eq(chatSessions.patientId, patientId))
-      .where(eq(chatSessions.status, 'active'))
+      .where(
+        and(
+          eq(chatSessions.patientId, patientId),
+          eq(chatSessions.status, 'active'),
+        ),
+      )
       .limit(1);
 
     if (existing) return existing;
@@ -579,6 +991,10 @@ export class LineWebhookService {
       .values({
         patientId,
         lineUserId,
+        entryPoint: routing?.entryPoint,
+        entryIntent: routing?.entryIntent,
+        queueStatus: routing?.queueStatus ?? 'self_service',
+        priority: routing?.priority ?? 'normal',
         sessionType: 'bot',
         status: 'active',
         messageCount: 0,
@@ -588,7 +1004,8 @@ export class LineWebhookService {
     return session;
   }
 
-  private async sendMainMenu(replyToken: string): Promise<void> {
+  private async sendMainMenu(replyToken: string, patient?: any): Promise<void> {
+    const isRegistered = this.journeyService.isPatientRegistered(patient);
     const menuBubble = {
       type: 'bubble' as const,
       body: {
@@ -629,6 +1046,24 @@ export class LineWebhookService {
             type: 'button' as const,
             style: 'secondary' as const,
             action: {
+              type: 'uri' as const,
+              label: isRegistered ? '👤 โปรไฟล์ของฉัน' : '📝 สมัครสมาชิก',
+              uri: isRegistered ? `${this.shopUrl}/profile` : `${this.shopUrl}/login`,
+            },
+          },
+          {
+            type: 'button' as const,
+            style: 'secondary' as const,
+            action: {
+              type: 'uri' as const,
+              label: '🔗 เชื่อมบัญชีเดิม',
+              uri: `${this.shopUrl}/line/link`,
+            },
+          },
+          {
+            type: 'button' as const,
+            style: 'secondary' as const,
+            action: {
               type: 'postback' as const,
               label: '📋 อัปโหลดใบสั่งยา',
               data: 'action=rx_upload',
@@ -653,16 +1088,6 @@ export class LineWebhookService {
               label: '📦 ติดตามออเดอร์',
               data: 'action=track_order',
               displayText: 'ติดตามออเดอร์',
-            },
-          },
-          {
-            type: 'button' as const,
-            style: 'secondary' as const,
-            action: {
-              type: 'postback' as const,
-              label: '👤 โปรไฟล์ของฉัน',
-              data: 'action=my_profile',
-              displayText: 'ดูโปรไฟล์',
             },
           },
         ],
@@ -692,16 +1117,179 @@ export class LineWebhookService {
     return greetings.some((g) => text.startsWith(g));
   }
 
+  private classifyTextMessage(text: string, patient: any) {
+    const normalized = text.trim().toLowerCase();
+    const isUrgent = this.isUrgentText(normalized);
+
+    if (!this.journeyService.isPatientRegistered(patient) && (normalized.includes('สมัคร') || normalized.includes('ลงทะเบียน'))) {
+      return {
+        entryIntent: 'register' as const,
+        queueStatus: 'self_service' as const,
+        priority: 'normal' as const,
+      };
+    }
+
+    if (normalized.includes('เชื่อม') || normalized.includes('บัญชีเดิม')) {
+      return {
+        entryIntent: 'link_account' as const,
+        queueStatus: 'self_service' as const,
+        priority: 'normal' as const,
+      };
+    }
+
+    if (normalized.includes('ปรึกษา') || normalized.includes('เภสัชกร')) {
+      return {
+        entryIntent: 'consult' as const,
+        queueStatus: 'needs_human' as const,
+        priority: isUrgent ? 'urgent' as const : 'normal' as const,
+        handoffReason: isUrgent ? 'urgent_consult' : 'consult_requested',
+      };
+    }
+
+    if (normalized.includes('ใบสั่งยา') || normalized === 'rx') {
+      return {
+        entryIntent: 'rx_upload' as const,
+        queueStatus: 'needs_human' as const,
+        priority: 'normal' as const,
+        handoffReason: 'rx_upload_requested',
+      };
+    }
+
+    if (normalized.includes('ติดตาม') || normalized.includes('ออเดอร์')) {
+      return {
+        entryIntent: 'order_tracking' as const,
+        queueStatus: 'self_service' as const,
+        priority: 'normal' as const,
+      };
+    }
+
+    if (normalized.includes('สั่งยา') || normalized.includes('ซื้อยา') || normalized.includes('หาสินค้า')) {
+      return {
+        entryIntent: 'product_search' as const,
+        queueStatus: 'self_service' as const,
+        priority: 'normal' as const,
+      };
+    }
+
+    if (isUrgent) {
+      return {
+        entryIntent: 'consult' as const,
+        queueStatus: 'needs_human' as const,
+        priority: 'urgent' as const,
+        handoffReason: 'urgent_health_signal',
+      };
+    }
+
+    return {
+      entryIntent: 'other' as const,
+      queueStatus: 'self_service' as const,
+      priority: 'normal' as const,
+    };
+  }
+
+  private isUrgentText(text: string): boolean {
+    const urgentKeywords = [
+      'ฉุกเฉิน',
+      'หายใจไม่ออก',
+      'แน่นหน้าอก',
+      'หมดสติ',
+      'เลือด',
+      'แพ้ยา',
+      'ชัก',
+      'ใจสั่น',
+    ];
+
+    return urgentKeywords.some((keyword) => text.includes(keyword));
+  }
+
+  private async markSessionNeedsHuman(
+    sessionId: string,
+    routing: {
+      entryIntent: 'consult' | 'register' | 'link_account' | 'rx_upload' | 'order_tracking' | 'product_search' | 'other';
+      priority: 'normal' | 'urgent';
+      reason: string;
+    },
+    patientId?: string,
+  ) {
+    await this.db
+      .update(chatSessions)
+      .set({
+        sessionType: 'pharmacist',
+        entryIntent: routing.entryIntent,
+        queueStatus: 'needs_human',
+        priority: routing.priority,
+        transferredReason: routing.reason,
+        updatedAt: new Date(),
+      })
+      .where(eq(chatSessions.id, sessionId));
+
+    if (patientId) {
+      void this.lineAutomation
+        .applyIntentTag(patientId, routing.entryIntent)
+        .catch((err) => this.logger.warn(`applyIntentTag: ${(err as Error).message}`));
+    }
+  }
+
+  private async markOutboundActivity(
+    sessionId: string,
+    state?: {
+      queueStatus?: 'self_service' | 'needs_human' | 'assigned' | 'resolved';
+    },
+  ) {
+    await this.db
+      .update(chatSessions)
+      .set({
+        queueStatus: state?.queueStatus,
+        lastOutboundAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(chatSessions.id, sessionId));
+  }
+
+  private async createSystemMessage(
+    sessionId: string,
+    content: string,
+    metadata: Record<string, unknown>,
+    patientId: string,
+  ) {
+    const [message] = await this.db
+      .insert(chatMessages)
+      .values({
+        sessionId,
+        role: 'system',
+        messageKind: 'system_event',
+        content,
+        messageType: 'system',
+        metadata,
+      })
+      .returning();
+
+    this.emitChatMessage(message, sessionId, patientId);
+    return message;
+  }
+
+  private emitChatMessage(message: any, sessionId: string, patientId: string) {
+    try {
+      this.eventsService?.emitChatMessage({
+        id: message.id,
+        sessionId,
+        patientId,
+        content: message.content,
+        role: message.role,
+        messageType: message.messageType,
+      });
+    } catch (err) {
+      this.logger.error(`Failed to emit chat:message for session ${sessionId}`, (err as Error).stack);
+    }
+  }
+
   private async generatePatientNo(): Promise<string> {
+    // Use MAX to get the highest patient number directly (avoids sorting issues)
     const result = await this.db
-      .select({ patientNo: patients.patientNo })
-      .from(patients)
-      .orderBy(patients.createdAt)
-      .limit(1);
+      .select({ maxNo: sql<string>`MAX(${patients.patientNo})` })
+      .from(patients);
 
-    if (result.length === 0) return 'PT-00001';
-
-    const lastNo = result[0].patientNo ?? 'PT-00000';
+    const lastNo = result[0]?.maxNo ?? 'PT-00000';
     const num = parseInt(lastNo.replace('PT-', ''), 10) + 1;
     return `PT-${num.toString().padStart(5, '0')}`;
   }

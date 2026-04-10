@@ -65,12 +65,33 @@ export class OrdersService {
         throw new BadRequestException(`Product ${product.nameTh} requires a prescription. Use Rx order flow.`);
       }
 
-      const fefoLots = await this.inventoryService.selectFefoLots(item.productId, item.quantity);
-      const primaryLot = fefoLots[0]!;
+      let fefoLots: Array<{ lotId: string; lotNo: string; quantity: number; expiryDate: string | null }> = [];
+      const reservedLots: Array<{ lotId: string; quantity: number }> = [];
+      try {
+        fefoLots = await this.inventoryService.selectFefoLots(item.productId, item.quantity);
 
-      for (const lot of fefoLots) {
-        await this.inventoryService.reserveStock(lot.lotId, lot.quantity);
+        for (const lot of fefoLots) {
+          await this.inventoryService.reserveStock(lot.lotId, lot.quantity);
+          reservedLots.push({ lotId: lot.lotId, quantity: lot.quantity });
+        }
+      } catch (error: any) {
+        for (const reserved of reservedLots) {
+          try {
+            await this.inventoryService.releaseReservedStock(reserved.lotId, reserved.quantity);
+          } catch {
+            // ignore cleanup failure
+          }
+        }
+
+        if (error instanceof BadRequestException || /stock|reserve/i.test(error?.message ?? '')) {
+          throw new BadRequestException(
+            `สต็อกสินค้า ${product.nameTh} ไม่เพียงพอสำหรับจำนวน ${item.quantity} ชิ้น กรุณาลดจำนวนหรือเลือกสินค้าอื่น`,
+          );
+        }
+        throw error;
       }
+
+      const primaryLot = fefoLots[0]!;
 
       const unitPrice = parseFloat(product.sellPrice ?? '0');
       const totalPrice = unitPrice * item.quantity;
@@ -203,6 +224,7 @@ export class OrdersService {
 
   /**
    * Get order by ID with items, delivery, and payment info.
+   * Maps fields to match frontend Order interface.
    */
   async getOrder(id: string, patientId?: string) {
     const conditions = [eq(orders.id, id)];
@@ -214,30 +236,46 @@ export class OrdersService {
 
     if (!order) throw new NotFoundException(`Order ${id} not found`);
 
-    const items = await this.db
-      .select()
-      .from(orderItems)
-      .where(eq(orderItems.orderId, id));
+    const [items, delivery, payment] = await Promise.all([
+      this.db.select().from(orderItems).where(eq(orderItems.orderId, id)),
+      this.db.query.deliveries.findFirst({ where: eq(deliveries.orderId, id) }),
+      this.paymentService.getPaymentByOrderId(id),
+    ]);
 
-    const delivery = await this.db.query.deliveries.findFirst({
-      where: eq(deliveries.orderId, id),
-    });
+    const mappedDelivery = delivery ? {
+      ...delivery,
+      method: delivery.provider ?? null,
+      address: [
+        (order as any).deliveryAddress,
+        (order as any).deliverySubDistrict,
+        (order as any).deliveryDistrict,
+        (order as any).deliveryProvince,
+      ].filter(Boolean).join(' ') || null,
+    } : null;
 
-    const payment = await this.paymentService.getPaymentByOrderId(id);
+    const mappedPayment = payment ? {
+      ...payment,
+      method: (payment as any).paymentMethod ?? (order as any).paymentMethod ?? 'promptpay',
+      status: (payment as any).status ?? 'pending',
+      qrCodeUrl: (payment as any).promptpayPayload
+        ? `data:image/png;base64,${Buffer.from((payment as any).promptpayPayload).toString('base64')}`
+        : null,
+      paidAt: (payment as any).paidAt ?? null,
+    } : null;
 
     return {
       success: true,
       data: {
         ...order,
         items,
-        delivery: delivery ?? null,
-        payment: payment ?? null,
+        delivery: mappedDelivery,
+        payment: mappedPayment,
       },
     };
   }
 
   /**
-   * List orders with pagination and optional filters.
+   * List orders with pagination, items count, and delivery tracking.
    */
   async listOrders(filters: {
     patientId?: string;
@@ -257,7 +295,15 @@ export class OrdersService {
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const data = await this.db
+    const [countRow] = await this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(orders)
+      .where(whereClause);
+
+    const total = countRow?.count ?? 0;
+    const totalPages = Math.ceil(total / limit);
+
+    const orderRows = await this.db
       .select()
       .from(orders)
       .where(whereClause)
@@ -265,7 +311,22 @@ export class OrdersService {
       .limit(limit)
       .offset(offset);
 
-    return { success: true, data, meta: { page, limit } };
+    // Enrich each order with items count and delivery tracking
+    const data = await Promise.all(
+      orderRows.map(async (order: any) => {
+        const [itemRows, delivery] = await Promise.all([
+          this.db.select().from(orderItems).where(eq(orderItems.orderId, order.id)),
+          this.db.query.deliveries.findFirst({ where: eq(deliveries.orderId, order.id) }),
+        ]);
+        return {
+          ...order,
+          items: itemRows,
+          delivery: delivery ?? null,
+        };
+      }),
+    );
+
+    return { success: true, data, meta: { page, limit, total, totalPages } };
   }
 
   /**

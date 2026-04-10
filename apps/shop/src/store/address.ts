@@ -11,6 +11,8 @@ export interface Address {
   district: string;
   province: string;
   postalCode: string;
+  latitude?: number | null;
+  longitude?: number | null;
   notes: string;
   isDefault: boolean;
 }

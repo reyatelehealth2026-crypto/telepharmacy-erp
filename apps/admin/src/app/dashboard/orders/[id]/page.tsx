@@ -202,8 +202,8 @@ export default function OrderDetailPage() {
                           )}
                         </td>
                         <td className="py-2 text-right">{item.quantity} {item.unit ?? ''}</td>
-                        <td className="py-2 text-right">฿{parseFloat(item.unitPrice).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
-                        <td className="py-2 text-right font-medium">฿{parseFloat(item.totalPrice).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+                        <td className="py-2 text-right">฿{parseFloat(item.unitPrice ?? '0').toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+                        <td className="py-2 text-right font-medium">฿{parseFloat(item.totalPrice ?? '0').toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -217,31 +217,31 @@ export default function OrderDetailPage() {
             <div className="mt-4 space-y-1 border-t pt-4 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">ยอดสินค้า</span>
-                <span>฿{parseFloat(order.subtotal).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+                <span>฿{parseFloat(order.subtotal ?? '0').toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
               </div>
-              {parseFloat(order.discountAmount) > 0 && (
+              {parseFloat(order.discountAmount ?? '0') > 0 && (
                 <div className="flex justify-between text-green-600">
                   <span>ส่วนลด</span>
-                  <span>-฿{parseFloat(order.discountAmount).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+                  <span>-฿{parseFloat(order.discountAmount ?? '0').toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
                 </div>
               )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">ค่าจัดส่ง</span>
-                <span>฿{parseFloat(order.deliveryFee).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+                <span>฿{parseFloat(order.deliveryFee ?? '0').toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
               </div>
-              {parseFloat(order.coldChainFee) > 0 && (
+              {parseFloat(order.coldChainFee ?? '0') > 0 && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">❄️ ค่า Cold Chain</span>
-                  <span>฿{parseFloat(order.coldChainFee).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+                  <span>฿{parseFloat(order.coldChainFee ?? '0').toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
                 </div>
               )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">VAT</span>
-                <span>฿{parseFloat(order.vatAmount).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+                <span>฿{parseFloat(order.vatAmount ?? '0').toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
               </div>
               <div className="flex justify-between border-t pt-2 text-base font-bold">
                 <span>รวมทั้งสิ้น</span>
-                <span>฿{parseFloat(order.totalAmount).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+                <span>฿{parseFloat(order.totalAmount ?? '0').toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
               </div>
             </div>
           </div>
@@ -306,7 +306,7 @@ export default function OrderDetailPage() {
                   <div key={p.id} className="rounded-lg border p-3">
                     <div className="flex items-center justify-between text-sm">
                       <span className="capitalize">{p.method}</span>
-                      <span className="font-medium">฿{parseFloat(p.amount).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+                      <span className="font-medium">฿{parseFloat(p.amount ?? '0').toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
                     </div>
                     <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
                       <span className="font-mono">{p.paymentNo}</span>
